@@ -1,0 +1,24 @@
+#+title: Coding Style
+#+author: Céleste Ornato
+#+latex_header: \makeatletter \@ifpackageloaded{geometry}{\geometry{margin=2cm}}{\usepackage[margin=2cm]{geometry}} \makeatother
+#+options: toc:nil date:nil
+* Format
++ Faire passer son code par clang-format avant de le push, soit en appellant manuellement clang-format
+   soit en ayant un éditeur qui le fait pour toi (donc juste pas vim quoi)
++ Utiliser 4 espaces au lieu du charactère tab (nb : la majorité des editeurs transforment
+   déjà la touche tab en 4 espaces, pas besoin d'appuyer 4 fois sur la barre)
++ Pour documenter une fonction, il faut utiliser les commentaires multilignes ~/* commentaire */~ au lieu de monoligne
+  ~// Commentaire~
+* Style
++ Utiliser ~(u)int[8/16/32/64]_t~ pour les ints au lieu de ~char~ / ~short~ / ~int~ / ~long long~, sauf dans le cas ou ~char~ représente
+  un charactère ASCII et non pas un nombre, ils sont inclus dans le header standard ~<stdint.h>~
++ Si une fonction ~foo~ ne prend pas de paramètre, la marquer ~type foo(void)~ au lieu de ~type foo()~
++ Ne pas utiliser le mot-clef ~typedef~
++ Ne pas utiliser un int comme un booléen, utiliser le type bool défini dans ~<stdbool.h>~ à la place
++ Ne pas renvoyer de la mémoire allouée sans le mot ~alloc~ dans le nom de la fonction, de manière générale éviter de renvoyer
+  de la mémoire allouée dans une fonction et à la place privilégier l'usage d'un out parameter
++ Toujours initialiser une variable à sa déclaration, possiblement à ~0~ / ~NULL~ / ~{0}~ si on n'a rien à mettre
++ Si un array doit être de taille variable (= pas littéralement un chiffre, un ~#define~ ou une valeur d'enum), utiliser ~malloc(size)~
+  (sans oublier de ~free~ ensuite) au lieu d'un array du stack (~int arr[size]~)
++ Si une fonction est interne à un fichier et n'est pas présente dans un header,
+  la marquer ~static~, idem pour les variables globales au fichier.
