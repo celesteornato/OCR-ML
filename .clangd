@@ -1,0 +1,23 @@
+CompileFlags:
+    Add: [
+        -std=c99,
+        -Wall,
+        -Wextra,
+        -Wpedantic,
+        -Wunused,
+        -Wfloat-equal,
+        -Wundef,
+        -Wshadow,
+        -Wpointer-arith,
+        -Wcast-align,
+        -Wstrict-prototypes,
+        -Wstrict-overflow=5,
+        -Wwrite-strings,
+        -Wcast-qual,
+        -Wswitch-default,
+        -Wswitch-enum,
+        -Wconversion,
+        -Wvla,
+        -Wunreachable-code,
+        -I./include
+    ]
