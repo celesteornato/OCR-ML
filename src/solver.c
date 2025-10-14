@@ -2,7 +2,6 @@
 
 /*
 Rewind for Virgile (sacre Virgile !):
-
  y  x
 {0, 0} no move
 {0, 1} right
@@ -17,8 +16,7 @@ Rewind for Virgile (sacre Virgile !):
 
 struct Coordinates Word_Coordinates = {-1, -1, -1, -1,};
 
-
-void go_directions(char grid[MAX_SIZE][MAX_SIZE], int index, char *word, int rows, int cols, int x, int y, int i, int j)
+void go_directions(char grid[MAX_SIZE][MAX_SIZE], int index, const char *word, int rows, int cols, int x, int y, int i, int j)
 {
     int len = (int)strlen(word);
     while(x >= 0 && y >= 0 && x<cols && y<rows && index< len && grid[y][x] == word[index])
@@ -37,7 +35,7 @@ void go_directions(char grid[MAX_SIZE][MAX_SIZE], int index, char *word, int row
 
 }
 
-void search_the_word(char grid[MAX_SIZE][MAX_SIZE], int rows, int cols, char *word)
+void search_the_word(char grid[MAX_SIZE][MAX_SIZE], int rows, int cols, const char *word)
 {
     for(int y = 0; y< rows; y++)
     {
@@ -70,27 +68,37 @@ void search_the_word(char grid[MAX_SIZE][MAX_SIZE], int rows, int cols, char *wo
     return; //no change (sad, we did not find our word)
 }
 
+void resolve(const char * list[], char grid[][MAX_SIZE], size_t length, int rows, int cols)
+{
+    for(size_t i = 0; i < length; i++)
+    {
+	printf("Searching for %s\n", list[i]);
+	search_the_word( grid, rows, cols, list[i]);
+    }
+}
+
+
+
 
 int main(void)
 {
     char grid[MAX_SIZE][MAX_SIZE]=
     {
-	"DGHEYEUJKQ",
-	"FSGDJNHJJD",
-	"EYUATTSNDI",
-	"KIOLKRLKI",
-	"TEFRTOFRTE",
-	"ASZXDPHKLS",
-	"ETYSGIKNXK",
-	"UKGFFCEDED"
+	"DGHEYEUJKQIDIDIDIDID",
+	"FSING1QJJDAAAAAAAAAA",
+	"EYUTTFSODIAAAAHAAAAA",
+	"KIORKFLKLAAAAEAAAAAA",
+	"TEFOTOFRTLAALAAAAAAA",
+	"ASZPDPHKLSOLAAAAAAAA",
+	"ETYIGIKNXKOAAAAAAAAA",
+	"UKGCFCEDEDAAAAAAAAAA"
     };
 
     int rows = 8;
-    int cols = 10;
-    char word[] = "ENTROPIC";
-
-    printf("Searching for %s\n", word);
-    search_the_word(grid, rows, cols, word); //should be (5,0),(5,7)
+    int cols = 20;
+    char word[] = "HELLO";  //should give (2,13),(6,9)
+    char word2[] = "ENTROPIC"; //should give (0,3)(7,3)
+    char word3[] = "ING1"; //should give (1,2)(1,5)
 
     printf("\n");
     return 0;
