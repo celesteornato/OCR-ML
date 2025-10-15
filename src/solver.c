@@ -77,7 +77,7 @@ static void search_the_word(const char grid[MAX_SIZE][MAX_SIZE], int rows, int c
     printf("Not found\n");
 }
 
-void resolve(const char *list[], char grid[MAX_SIZE][MAX_SIZE], size_t length, int rows, int cols)
+void resolve(const char **list[], char grid[MAX_SIZE][MAX_SIZE], size_t length, int rows, int cols)
 {
     for (size_t i = 0; i < length; i++)
     {
@@ -98,6 +98,12 @@ int main(void)
     char word[] = "HELLO";     // should give (2,13),(6,9)
     char word2[] = "ENTROPIC"; // should give (0,3)(7,3)
     char word3[] = "ING1";     // should give (1,2)(1,5)
+    const char *list;
+    list.add(word);
+    list.add(word2);
+    list.add(word3);
+
+    resolve(list, grid, 3, rows, cols);
 
     printf("\n");
     return 0;
