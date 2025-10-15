@@ -28,4 +28,8 @@ char of our word to the good one (The last coordinates are handleded by go_direc
 nothing */
 void search_the_word(const char grid[MAX_SIZE][MAX_SIZE], int rows, int cols, const char *word);
 
+/*Call the search of words on each word of the list that we all have to resolve.
+ * (En resume) resolve the whole "mots caches"
+*/
+void resolve(const char *list[], const char grid[MAX_SIZE][MAX_SIZE], size_t length, int rows, int cols);
 #endif // SOLVER_H_

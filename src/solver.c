@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 
+enum { ARBITRARY_LENGTH = 10;};
 /*
 Rewind for Virgile (sacre Virgile !):
  y  x
@@ -40,7 +41,7 @@ void go_directions(const char grid[MAX_SIZE][MAX_SIZE], int index, const char *w
     }
 }
 
-static void search_the_word(const char grid[MAX_SIZE][MAX_SIZE], int rows, int cols, const char *word)
+void search_the_word(const char grid[MAX_SIZE][MAX_SIZE], int rows, int cols, const char *word)
 {
     for (int y = 0; y < rows; y++)
     {
@@ -77,7 +78,7 @@ static void search_the_word(const char grid[MAX_SIZE][MAX_SIZE], int rows, int c
     printf("Not found\n");
 }
 
-void resolve(const char **list[], char grid[MAX_SIZE][MAX_SIZE], size_t length, int rows, int cols)
+void resolve(const char *list[], const char grid[MAX_SIZE][MAX_SIZE], size_t length, int rows, int cols)
 {
     for (size_t i = 0; i < length; i++)
     {
@@ -88,20 +89,26 @@ void resolve(const char **list[], char grid[MAX_SIZE][MAX_SIZE], size_t length, 
 
 int main(void)
 {
-    char grid[MAX_SIZE][MAX_SIZE] = {"DGHEYEUJKQIDIDIDIDID", "FSING1QJJDAAAAAAAAAA",
-                                     "EYUTTFSODIAAAAHAAAAA", "KIORKFLKLAAAAEAAAAAA",
-                                     "TEFOTOFRTLAALAAAAAAA", "ASZPDPHKLSOLAAAAAAAA",
-                                     "ETYIGIKNXKOAAAAAAAAA", "UKGCFCEDEDAAAAAAAAAA"};
+    const char grid[MAX_SIZE][MAX_SIZE] = {
+    "DGHEYEUJKQIDIDIDIDID",
+    "FSING1QJJDAAAAAAAAAA",
+    "EYUTTFSODIAAAAHAAAAA", 
+    "KIORKFLKLAAAAEAAAAAA",
+    "TEFOTOFRTLAALAAAAAAA",
+    "ASZPDPHKLSOLAAAAAAAA",
+    "ETYIGIKNXKOAAAAAAAAA",
+    "UKGCFCEDEDAAAAAAAAAA"
+    };
 
     int rows = 8;
     int cols = 20;
-    char word[] = "HELLO";     // should give (2,13),(6,9)
-    char word2[] = "ENTROPIC"; // should give (0,3)(7,3)
-    char word3[] = "ING1";     // should give (1,2)(1,5)
-    const char *list;
-    list.add(word);
-    list.add(word2);
-    list.add(word3);
+    char word[] = "HELLO";     // should give (14,2 ),(10,6)
+    char word2[] = "ENTROPIC"; // should give (3,0)(3,7)
+    char word3[] = "ING1";     // should give (2,1)(5,1)
+    const char *list[ARBITRARY_LENGTH];
+    list[0] = word;
+    list[1] = word2;
+    list[2] = word3;
 
     resolve(list, grid, 3, rows, cols);
 
