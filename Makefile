@@ -1,6 +1,6 @@
 INCLUDE=./include
-CC=cc
-WARNS=\
+CC:=clang
+WARNS:=\
     -Wall\
     -Wextra\
     -Wpedantic\
@@ -22,19 +22,23 @@ WARNS=\
 
 CFLAGS+= \
 	--std=c99 \
-	-O3 \
-	-I$(INCLUDE)
+	-g3 \
+	-fsanitize=address,undefined \
+	-I$(INCLUDE) \
+	-lm \
+	-lSDL2
 
-SRCS+=    $(shell find src -name '*.c')
-OBJ+=$(patsubst %.c,%.o,$(SRCS))
+SRC:=$(shell find . -name '*.c')
+OBJ:=$(SRC:.c=.o)
+OUT:=gridsolver.out
 
-all: solver.out
+all: $(OUT)
 
-solver.out:
-	$(CC) $(CFLAGS) $(WARNS) -o solver.out src/solver.c
+$(OUT): $(OBJ)
+	$(CC) $(CFLAGS) $(WARNS) -o $(OUT) $(OBJ)
 
 .c.o:
-	$(CC) $(CFLAGS) $(WARNS) -c $< -o $@
+	$(CC) $(CFLAGS) $(WARNS) -c -o $@ $<
 
 .PHONY: all debug clean
 .SUFFIXES: .o .c .h
