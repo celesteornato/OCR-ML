@@ -1,5 +1,5 @@
-#ifndef SOLVER_H_
-#define SOLVER_H_
+#ifndef SOLVER_H
+#define SOLVER_H
 
 #include <stddef.h>
 enum { MAX_SIZE = 100 };
@@ -40,4 +40,4 @@ void search_the_word(const char grid[MAX_SIZE][MAX_SIZE], int rows, int cols,
 void resolve(const char *list[], const char grid[MAX_SIZE][MAX_SIZE],
              size_t length, int rows, int cols);
 
-#endif // SOLVER_H_
+#endif // SOLVER_H
