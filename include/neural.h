@@ -6,9 +6,9 @@
 
 enum {
   INPUT_SIZE = 2,
-  LAYER1_SIZE = 100,
+  LAYER1_SIZE = 10,
   OUTPUT_SIZE = 1,
-  TRAIN_ITERATIONS = 200000
+  TRAIN_ITERATIONS = 20000
 };
 
 struct neural_network {

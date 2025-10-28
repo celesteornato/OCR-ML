@@ -6,7 +6,6 @@
 #include <stdint.h>
 #include <time.h>
 
-
 static int test_solver(void) {
   const char grid[][MAX_SIZE] = {
       "DGHEYEUJKQIDIDIDIDID", "FSING1QJJDAAAAAAAAAA", "EYUTTFSODIAAAAHAAAAA",
@@ -71,28 +70,20 @@ static int test_p2bmap(const char path[static 1]) {
 }
 
 static int test_neural(void) {
-  struct neural_network n = {1};
-  srand(time(NULL)); //NOLINT
-
+  struct neural_network n;
+  srand(time(NULL)); // NOLINT
   train(&n);
-
-
-  for (size_t i = 0; i < INPUT_SIZE; ++i) {
-    printf("Input Node %zu : value of %f\n", i, n.input[i]);
-    for (size_t j = 0; j < LAYER1_SIZE; ++j) {
-      printf("\tWeight with node %zu : %f\n",j,n.layer1_weights[j][i]);
-    }
-  }
 
   printf("%d\n", neural_find_logic(&n, true, false));
   printf("%d\n", neural_find_logic(&n, false, true));
   printf("%d\n", neural_find_logic(&n, true, true));
   printf("%d\n", neural_find_logic(&n, false, false));
+
   return 1;
 }
 
 int main(int argc, char *argv[]) {
-  if (argc != 2) // error
+  if (argc != 2)
   {
     printf("I must take exactly one picture ... :(");
     return 1;
@@ -102,7 +93,7 @@ int main(int argc, char *argv[]) {
   assert(test_solver());
   assert(test_thresholding(argv[1]));
   assert(test_p2bmap(argv[1]));
-  assert(test_neural());
+  ssert(test_neural());
 
   SDL_Quit();
 }
