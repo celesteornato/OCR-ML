@@ -24,13 +24,13 @@ CFLAGS+= \
 	--std=c99 \
 	-g3 \
 	-fsanitize=address,undefined \
-	-I$(INCLUDE) \
-	-lm \
-	-lSDL2
+	-I$(INCLUDE)
 
 SRC:=$(shell find . -name '*.c')
 OBJ:=$(SRC:.c=.o)
 OUT:=gridsolver.out
+
+LIBS:=-lm -lSDL2
 
 all: $(OUT)
 
@@ -38,7 +38,7 @@ clean:
 	rm -f $(OBJ) $(OUT)
 
 $(OUT): $(OBJ)
-	$(CC) $(CFLAGS) $(WARNS) -o $(OUT) $(OBJ)
+	$(CC) $(CFLAGS) $(WARNS) -o $(OUT) $(OBJ) $(LIBS)
 
 .c.o:
 	$(CC) $(CFLAGS) $(WARNS) -c -o $@ $<
