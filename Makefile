@@ -34,12 +34,15 @@ OUT:=gridsolver.out
 
 all: $(OUT)
 
+clean:
+	rm -f $(OBJ) $(OUT)
+
 $(OUT): $(OBJ)
 	$(CC) $(CFLAGS) $(WARNS) -o $(OUT) $(OBJ)
 
 .c.o:
 	$(CC) $(CFLAGS) $(WARNS) -c -o $@ $<
 
-.PHONY: all debug clean
+.PHONY: all clean
 .SUFFIXES: .o .c .h
 
