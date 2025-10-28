@@ -1,16 +1,16 @@
-#ifndef GRAYSCALE_H
-#define GRAYSCALE_H
+#ifndef GRAYSCALE_H_
+#define GRAYSCALE_H_
+#include <SDL2/SDL_surface.h>
 
-/*transforme in grayscale (only gray nuances) te colors of the image, return the gray picture*/
-SDL_Surface* grayscale(SDL_Surface* src);
+/* Returns a grayscale copy of the surface src */
+SDL_Surface *grayscale(SDL_Surface *src);
 
-/*Compute the threshold of grey off the image by computing the noise of the picture (Otsu method) based on the shape of the image histogram*/
-/*returns a threshold usesful for next function, eh oui Virgile*/
-Uint8 mid_threshold(SDL_Surface* gray);
+/* Compute the threshold of gray off the image by computing the noise of the
+ * picture (Otsu method) based on the shape of the image histogram
+ * returns a threshold usesful for next function, et oui Virgile */
+uint8_t get_threshold(const SDL_Surface *gray);
 
-/*Transforme the image in black and white, return the black and white picture*/
-SDL_Surface* black_n_white(SDL_Surface* src, Uint8 threshold);
+/* Return a black and white copy of the surface, according to the threshold */
+SDL_Surface *apply_threshold(SDL_Surface *src, uint8_t threshold);
 
-
-
-#endif 
+#endif // GRAYSCALE_H_

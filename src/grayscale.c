@@ -1,115 +1,84 @@
 #include <SDL2/SDL.h>
+#include <grayscale.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
 
+SDL_Surface *grayscale(SDL_Surface *src) {
+  // Our approach will be to modify this surface
+  SDL_Surface *gray = SDL_ConvertSurfaceFormat(src, SDL_PIXELFORMAT_RGB888, 0);
+  if (!gray) {
+    return NULL;
+  }
+  uint8_t r = 0;
+  uint8_t g = 0;
+  uint8_t b = 0;
 
+  // The RGB888 format is analogous to a uint32_t
+  uint32_t *pixels = gray->pixels;
 
-SDL_Surface* grayscale(SDL_Surface* src)
-{
-    SDL_Surface* gray = SDL_ConvertSurfaceFormat(src, SDL_PIXELFORMAT_RGB888, 0); //we create a new surface
-    if (!gray)      // wich contains exactly the same pixels,but stocked under 3 octets by pixels : R, G, B
-    {
-        return NULL; 
+  for (int y = 0; y < gray->h; y++) {
+    for (int x = 0; x < gray->w; x++) {
+      uint32_t pixel = pixels[(y * gray->w) + x];
+
+      // get color of the pixel with RGB code
+      SDL_GetRGB(pixel, gray->format, &r, &g, &b);
+      // compute the gray
+      uint8_t val = (uint8_t)((0.299 * r) + (0.587 * g) + (0.114 * b));
+      // write new pixel over old one in grey
+      pixels[(y * gray->w) + x] = SDL_MapRGB(gray->format, val, val, val);
     }
-    Uint8 r, g, b;
-    Uint32* pixels = (Uint32*)gray->pixels; //all pixels of gray cnverted in 32bits because they are in RGB format
-
-    for (int y = 0; y < gray->h; y++) // going through all pixels
-    {
-        for (int x = 0; x < gray->w; x++)
-        {
-            Uint32 pixel = pixels[y * gray->w + x]; // get the pixel
-            SDL_GetRGB(pixel, gray->format, &r, &g, &b); //get color of the pixel with RGB code
-            Uint8 val = (Uint8)(0.299 * r + 0.587 * g + 0.114 * b); // calculus of grey
-            pixels[y * gray->w + x] = SDL_MapRGB(gray->format, val, val, val); //write new pixel over old one in grey
-        }
-    }
-    return gray; //return new image in grey
-
+  }
+  return gray; // return new image in grey
 }
 
-Uint8 otsu(SDL_Surface* gray)
-{
-    Uint32 histogram[256] = {0}; // create historgam
-    Uint32* pixels = (Uint32*)gray->pixels; // all pixels of the gray picture
-    Uint8 r, g, b;
+uint8_t get_threshold(const SDL_Surface *gray) {
+  uint64_t histogram[UINT8_MAX + 1];
+  uint64_t pixel_count = (uint64_t)gray->h * (uint64_t)gray->w;
+  uint64_t average = 0;
 
-    for (int y = 0; y < gray->h; y++)
-    {   
-        for (int x = 0; x < gray->w; x++)
-        {
-            SDL_GetRGB(pixels[y * gray->w + x], gray->format, &r, &g, &b); //because gray, r == g == b
-            histogram[r]++; //add to the histogram the value of gray
-        }
+  uint32_t *pixels = (uint32_t *)gray->pixels; // all pixels of the gray picture
+  for (int y = 0; y < gray->h; y++) {
+    for (int x = 0; x < gray->w; x++) {
+      uint8_t r = 0;
+      uint8_t g = 0;
+      uint8_t b = 0;
+
+      SDL_GetRGB(pixels[(y * gray->w) + x], gray->format, &r, &g, &b);
+      // Because we take a grayscale image, r = g = b
+      histogram[r]++;
     }
-
+  }
+  return UINT8_MAX/2;
 }
 
+SDL_Surface *apply_threshold(SDL_Surface *src, uint8_t threshold) {
+  SDL_Surface *bnw = SDL_ConvertSurfaceFormat(src, SDL_PIXELFORMAT_RGB888,
+                                              0); // we create a new surface
+  if (!bnw) {
+    return NULL;
+  }
 
-
-
-SDL_Surface* black_n_white(SDL_Surface* src, Uint8 threshold)
-{
-    SDL_Surface* black_n_white = SDL_ConvertSurfaceFormat(src, SDL_PIXELFORMAT_RGB888, 0); //we create a new surface
-    if(!black_n_white)
-    {
-         return NULL;
+  uint8_t r;
+  uint8_t g;
+  uint8_t b;
+  uint32_t *pixels = (uint32_t *)bnw->pixels; // same
+  for (int y = 0; y < bnw->h; y++)            // going through all pixels
+  {
+    for (int x = 0; x < bnw->w; x++) {
+      uint32_t pixel = pixels[(y * bnw->w) + x]; // get the pixel
+      SDL_GetRGB(pixel, bnw->format, &r, &g,
+                 &b); // get color of the pixel with RGB code here r == g == b
+      if (r > threshold) {
+        pixels[(y * bnw->w) + x] =
+            SDL_MapRGB(bnw->format, 255, 255, 255); // in white
+      } else {
+        pixels[(y * bnw->w) + x] =
+            SDL_MapRGB(bnw->format, 0, 0,
+                       0); // write new pixel over old one in black
+      }
     }
-
-    Uint8 r, g, b;
-    Uint32* pixels = (Uint32*)black_n_white->pixels; //same
-    for (int y = 0; y < black_n_white->h; y++) // going through all pixels
-    {
-        for (int x = 0; x < black_n_white->w; x++)
-        {
-            Uint32 pixel = pixels[y * black_n_white->w + x]; // get the pixel
-            SDL_GetRGB(pixel, black_n_white->format, &r, &g, &b); //get color of the pixel with RGB code here r == g == b because grey 
-            if(r > threshold)
-            {
-                pixels[y * black_n_white->w + x] = SDL_MapRGB(black_n_white->format, 255, 255, 255); //in white
-            }
-            else
-            {
-                pixels[y * black_n_white->w + x] = SDL_MapRGB(black_n_white->format, 0, 0, 0); //write new pixel over old one in black
-            }
-        }
-    }
-    return black_n_white; 
-}
-
-
-int main(int argc, char* argv[])
-{
-    if (argc != 2) //error
-    {
-        printf("I could use only one picture ... :(");
-        return 1;
-    }
-
-    SDL_Init(SDL_INIT_VIDEO);
-    SDL_Surface* img = SDL_LoadBMP(argv[1]);
-    if (!img) //error
-    {
-        printf("Failed to load image: %s\n", SDL_GetError());
-        SDL_Quit();
-        return 1;
-    }
-
-    SDL_Surface* gray = grayscale(img); //gray
-    Uint8 threshold = otsu(gray); //thresold of gray with otsu method
-    SDL_Surface* black_n_white = black_n_white(gray, threshold); // final result
-
-    printf("Threshold = %d\n", threshold);
-
-    SDL_SaveBMP(gray, "gray.bmp");
-    SDL_SaveBMP(black_n_white, "black_n_white.bmp");
-
-    SDL_FreeSurface(black_n_white);
-    SDL_FreeSurface(gray);
-    SDL_FreeSurface(img);
-    SDL_Quit();
-
-    printf("Saved gray.bmp and black_n_white.bmp\n");
-    return 0;
+  }
+  return bnw;
 }
