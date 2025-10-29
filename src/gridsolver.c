@@ -83,8 +83,7 @@ static int test_neural(void) {
 }
 
 int main(int argc, char *argv[]) {
-  if (argc != 2)
-  {
+  if (argc != 2) {
     printf("I must take exactly one picture ... :(");
     return 1;
   }
@@ -93,7 +92,7 @@ int main(int argc, char *argv[]) {
   assert(test_solver());
   assert(test_thresholding(argv[1]));
   assert(test_p2bmap(argv[1]));
-  ssert(test_neural());
+  assert(test_neural());
 
   SDL_Quit();
 }
