@@ -10,11 +10,9 @@
 #include <strings.h>
 #include <time.h>
 
-#define countof(ARR) (sizeof(ARR) / sizeof(*(ARR)))
-
 static double sigmoid(double x) { return 1 / (1 + exp(-x)); }
-static double reul(double x) { return x > 0 ? x : 0; }
 static double dsigmoid(double x) { return x * (1 - x); }
+
 static double rnd(void) {
   return (double)rand() / (double)(RAND_MAX); // NOLINT
 }
@@ -56,6 +54,7 @@ static void nn_process_logic(struct neural_network *nn, bool a, bool b) {
     nn->layer1[i] += line_dot(nn->input, nn->layer1_weights[i], INPUT_SIZE);
   }
   line_map(nn->layer1, LAYER1_SIZE, sigmoid);
+
   for (size_t i = 0; i < OUTPUT_SIZE; ++i) {
     nn->output[i] += line_dot(nn->layer1, nn->output_weights[i], LAYER1_SIZE);
   }
