@@ -123,7 +123,19 @@ int main(int argc, char **argv) {
   SDL_FreeSurface(surf);
 
   double angle = 0.0;
-  while (event_loop(ren, &angle)) {
+  int running = 1;
+  while (running) {
+    running = event_loop(ren, &angle);
+
+    SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
+    SDL_RenderClear(ren);
+    int ww;
+    int wh;
+    SDL_GetRendererOutputSize(ren, &ww, &wh);
+    SDL_Rect dst = { (ww - iw) / 2, (wh - ih) / 2, iw, ih };
+    SDL_Point center = { iw / 2, ih / 2 };
+    SDL_RenderCopyEx(ren, tex, NULL, &dst, angle, &center, SDL_FLIP_NONE);
+    SDL_RenderPresent(ren);
   }
 
   if (tex) {
