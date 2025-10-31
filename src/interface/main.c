@@ -29,19 +29,19 @@ static int save_screenshot(SDL_Renderer *ren, const char *filename) {
   return rc;
 }
 
-static int event_loop(SDL_Renderer *ren, double *angle) {
+static bool event_loop(SDL_Renderer *ren, double *angle) {
   SDL_Event e;
   while (SDL_PollEvent(&e)) {
     if (e.type == SDL_QUIT) {
-      return 0;
+      return false;
     }
     if (e.type != SDL_KEYDOWN) {
-      return 1;
+      return true;
     }
 
     switch (e.key.keysym.sym) {
     case (SDLK_ESCAPE):
-      return 0;
+      return false;
     case (SDLK_LEFT):
       *angle -= 5.0;
       break;
@@ -117,7 +117,19 @@ int main(int argc, char **argv) {
   SDL_FreeSurface(surf);
 
   double angle = 0.0;
-  while (event_loop(ren, &angle)) {
+  bool running = true;
+  while (running) {
+    running = event_loop(ren, &angle);
+
+    SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
+    SDL_RenderClear(ren);
+    int ww;
+    int wh;
+    SDL_GetRendererOutputSize(ren, &ww, &wh);
+    SDL_Rect dst = {(ww - iw) / 2, (wh - ih) / 2, iw, ih};
+    SDL_Point center = {iw / 2, ih / 2};
+    SDL_RenderCopyEx(ren, tex, NULL, &dst, angle, &center, SDL_FLIP_NONE);
+    SDL_RenderPresent(ren);
   }
 
   if (tex) {
