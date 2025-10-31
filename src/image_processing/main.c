@@ -1,29 +1,18 @@
-#include "neural.h"
 #include <SDL2/SDL.h>
 #include <assert.h>
+#include <getopt.h>
 #include <grayscale.h>
-#include <solver.h>
 #include <stdint.h>
-#include <time.h>
+#include <stdio.h>
 
-static int test_solver(void) {
-  const char grid[][MAX_SIZE] = {
-      "DGHEYEUJKQIDIDIDIDID", "FSING1QJJDAAAAAAAAAA", "EYUTTFSODIAAAAHAAAAA",
-      "KIORKFLKLAAAAEAAAAAA", "TEFOTOFRTLAALAAAAAAA", "ASZPDPHKLSOLAAAAAAAA",
-      "ETYIGIKNXKOAAAAAAAAA", "UKGCFCEDEDAAAAAAAAAA"};
-
-  int rows = 8;
-  int cols = 20;
-  char word[] = "HELLO";
-  char word2[] = "ENTROPIC";
-  char word3[] = "ING1";
-  const char *list[] = {word, word2, word3};
-
-  // Expected results: {(14,2),(10,6)} , {(3,0)(3,7)},  {(2,1)(5,1)}
-  resolve(list, grid, 3, rows, cols);
-
-  printf("\n");
-  return 1;
+static void print_usage(void) {
+  printf("Image Processing - Grayscale and Threshold an image or convert it to "
+         "a bitmap\n"
+         "Usage: image_process -b|-t path\n"
+         "Arguments:\n"
+         "\t-b: Convert an image to its bitmap representation and print it.\n"
+         "\t-t: Convert and save an image both as its thresholded "
+         "representation and as a grayscale\n");
 }
 
 static int test_thresholding(char path[static 1]) {
@@ -32,7 +21,7 @@ static int test_thresholding(char path[static 1]) {
   {
     printf("Failed to load image: %s\n", SDL_GetError());
     SDL_Quit();
-    return 1;
+    return 0;
   }
 
   SDL_Surface *gray = grayscale(img);      // gray
@@ -69,30 +58,31 @@ static int test_p2bmap(const char path[static 1]) {
   return 1;
 }
 
-static int test_neural(void) {
-  struct neural_network n;
-  srand(time(NULL)); // NOLINT
-  train(&n);
-
-  printf("%d\n", neural_find_logic(&n, true, false));
-  printf("%d\n", neural_find_logic(&n, false, true));
-  printf("%d\n", neural_find_logic(&n, true, true));
-  printf("%d\n", neural_find_logic(&n, false, false));
-
-  return 1;
-}
-
 int main(int argc, char *argv[]) {
-  if (argc != 2) {
-    printf("I must take exactly one picture ... :(");
+  int opt = 0;
+  if (argc < 2) {
+    printf("Error: requires at least one argument.\n");
+    print_usage();
     return 1;
   }
+
   SDL_Init(SDL_INIT_VIDEO);
 
-  assert(test_solver());
-  assert(test_thresholding(argv[1]));
-  assert(test_p2bmap(argv[1]));
-  assert(test_neural());
+  while ((opt = getopt(argc, argv, "b:t:h")) != -1) {
+    switch (opt) {
+    case 'b':
+      test_p2bmap(optarg);
+      break;
+    case 't':
+      test_thresholding(optarg);
+      break;
+    case ':':
+    case '?':
+    case 'h':
+      print_usage();
+      return 0;
+    }
+  }
 
   SDL_Quit();
 }
