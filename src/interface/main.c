@@ -5,6 +5,8 @@
 #include <stdbool.h>
 #include <stdio.h>
 
+#define ROTATE_INCREMENT 1.5
+
 static int save_screenshot(SDL_Renderer *ren, const char *filename) {
   int w;
   int h;
@@ -43,11 +45,11 @@ static bool event_loop(SDL_Renderer *ren, double *angle) {
     case (SDLK_ESCAPE):
       return false;
     case (SDLK_LEFT):
-      *angle -= 5.0;
+      *angle -= ROTATE_INCREMENT;
       break;
 
     case (SDLK_RIGHT):
-      *angle += 5.0;
+      *angle += ROTATE_INCREMENT;
       break;
 
     case (SDLK_r):
@@ -56,6 +58,7 @@ static bool event_loop(SDL_Renderer *ren, double *angle) {
 
     case (SDLK_b):
       save_screenshot(ren, "screenshot.bmp");
+      printf("Saved screenshot as screenshot.bmp!\n");
       break;
     default:
       break;
