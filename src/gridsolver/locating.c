@@ -91,11 +91,6 @@ SDL_Rect detect_grid(SDL_Surface *img, int *proj_x, int *proj_y) {
   return grid;
 }
 
-SDL_Rect detect_list(SDL_Surface *img, int *proj_x, int *proj_y) {
-  return (SDL_Rect){0};
-  // je vois pas comment voir la liste et les mots dans la liste
-}
-
 void flood_fill(SDL_Surface *img, int x, int y, struct bounding_box *bb) {
   if (x < 0 || y < 0 || x >= img->w || y >= img->h) {
     return;
