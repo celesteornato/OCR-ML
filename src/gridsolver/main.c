@@ -10,11 +10,23 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+static void print_help(void) {
+  printf("Solver - Find the location of a word in a grid\n"
+         "Usage: solver path word\n");
+}
+
+static void to_upper(char str[static 1]) {
+  for (; *str; ++str)
+    if (*str >= 'a' && *str <= 'z') {
+      *str += 'A' - 'a';
+    }
+}
+
 static int test_solver(const char *grid[static 1], const char *word, int rows,
                        int cols) {
   const char *list[] = {word};
 
-  resolve(list, grid, sizeof(list)/sizeof(*list), rows, cols);
+  resolve(list, grid, sizeof(list) / sizeof(*list), rows, cols);
 
   printf("\n");
   return 1;
@@ -22,7 +34,8 @@ static int test_solver(const char *grid[static 1], const char *word, int rows,
 
 int main(int argc, char *argv[]) {
   if (argc != 3) {
-    printf("%d\n", argc);
+    printf("Error while trying to read the passed arguments\n");
+    print_help();
     return 1;
   }
 
@@ -55,9 +68,11 @@ int main(int argc, char *argv[]) {
   }
 
   printf("R: %d, C: %d\n", rows, cols);
-  test_solver(grid, argv[2], rows, cols);
+  char *word = argv[2];
+  to_upper(word);
+  test_solver(grid, word, rows, cols);
 
-  free((void*)grid);
+  free((void *)grid);
   munmap(data, (size_t)st.st_size);
   close(fd);
   return 0;
