@@ -23,8 +23,8 @@ struct coordinates word_coordinates = {
     -1,
 };
 
-void go_directions(const char grid[MAX_SIZE][MAX_SIZE], size_t index,
-                   const char *word, int rows, int cols, int x, int y,
+void go_directions(const char *grid[], size_t index,
+                   const char word[static 1], int rows, int cols, int x, int y,
                    enum direction_x i, enum direction_y j) {
   size_t len = strlen(word);
   while (x >= 0 && y >= 0 && x < cols && y < rows && index < len &&
@@ -39,7 +39,7 @@ void go_directions(const char grid[MAX_SIZE][MAX_SIZE], size_t index,
   }
 }
 
-void search_the_word(const char grid[MAX_SIZE][MAX_SIZE], int rows, int cols,
+void search_the_word(const char *grid[], int rows, int cols,
                      const char *word) {
   for (int y = 0; y < rows; y++) {
     for (int x = 0; x < cols; x++) {
@@ -72,7 +72,7 @@ void search_the_word(const char grid[MAX_SIZE][MAX_SIZE], int rows, int cols,
   printf("Not found\n");
 }
 
-void resolve(const char *list[], const char grid[MAX_SIZE][MAX_SIZE],
+void resolve(const char *list[], const char *grid[],
              size_t length, int rows, int cols) {
   for (size_t i = 0; i < length; i++) {
     printf("Searching for %s\n", list[i]);
