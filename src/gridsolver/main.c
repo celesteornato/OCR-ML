@@ -27,7 +27,6 @@ static int test_solver(const char *grid[static 1], const char *word, int rows,
   const char *list[] = {word};
 
   resolve(list, grid, sizeof(list) / sizeof(*list), rows, cols);
-
   printf("\n");
   return 1;
 }
