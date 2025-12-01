@@ -26,15 +26,23 @@ int main(int argc, char *argv[]) {
     print_usage();
     return 1;
   }
-
-  bool a = strtoull(argv[1], NULL, 10);
-  bool b = strtoull(argv[2], NULL, 10);
-
   struct neural_network nn = {0};
   train(&nn);
-  bool result = neural_find_logic(&nn, a, b);
 
-  printf("Neural network output: %f (= %s)\n"
-         "Expected: %s\n",
-         nn.output[0], result ? "true" : "false", a == b ? "true" : "false");
+  bool result = false;
+  bool a = false;
+  bool b = false;
+
+  b = false, a = true;
+  result = neural_find_logic(&nn, a, b);
+  printf((a == b) == result ? "Correct, otp at %f\n" : "Incorrect, otp at %f\n", nn.output[0]);
+  b = false, a = false;
+  result = neural_find_logic(&nn, a, b);
+  printf((a == b) == result ? "Correct, otp at %f\n" : "Incorrect, otp at %f\n", nn.output[0]);
+  b = true, a = false;
+  result = neural_find_logic(&nn, a, b);
+  printf((a == b) == result ? "Correct, otp at %f\n" : "Incorrect, otp at %f\n", nn.output[0]);
+  b = true, a = true;
+  result = neural_find_logic(&nn, a, b);
+  printf((a == b) == result ? "Correct, otp at %f\n" : "Incorrect, otp at %f\n", nn.output[0]);
 }
