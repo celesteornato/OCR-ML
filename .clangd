@@ -1,7 +1,7 @@
 CompileFlags:
     Add: [
         "-xc",
-        "-std=c99",
+        "-std=gnu99",
         "-I./include/",
         "-lm",
         "-Wall",
