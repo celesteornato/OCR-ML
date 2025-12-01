@@ -20,11 +20,19 @@ WARNS:=\
     -Wvla\
     -Wunreachable-code
 
-CFLAGS+= \
-	--std=c99 \
-	-g3 \
-	-fsanitize=address,undefined \
-	-I$(INCLUDE)
+ifdef DEBUG
+    CFLAGS+= \
+	    --std=gnu99 \
+	    -g3 \
+	    -fsanitize=address,undefined \
+	    -I$(INCLUDE)
+else
+    CFLAGS+= \
+	    --std=gnu99 \
+	    -O3 \
+	    -I$(INCLUDE)
+endif
+
 
 SRC_SOLVER:=$(shell find ./src/gridsolver -name '*.c')
 SRC_NEURAL:=$(shell find ./src/neural_network -name '*.c')
