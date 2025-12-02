@@ -1,6 +1,7 @@
 #include "grid_extractor.h"
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
+#include <err.h>
 #include <stdio.h>
 
 /*projetcions
@@ -64,14 +65,20 @@ void find_bounds(int *proj, int length, int *start, int *end)
     *end = e;
 }
 
-/*Grid Detection*/
-/*Functiun used with the proj to detect the grid*/
+/* Grid Detection
+ * Functiun used with the proj to detect the grid*/
 struct grid_bounds get_grid(SDL_Surface *img)
 {
     struct grid_bounds g = {0, 0, 0, 0};
 
-    int *h_proj = calloc(img->h, sizeof(int));
-    int *w_proj = calloc(img->w, sizeof(int));
+    // We should check for negative dimensions as we later cast these
+    // variables to size_t
+    if (img->h < 0 || img->w < 0)
+    {
+        errx(EXIT_FAILURE, "get_grid: Incorrect dimensions (h: %d, w: %d)", img->h, img->w);
+    }
+    int *h_proj = calloc((size_t)img->h, sizeof(int));
+    int *w_proj = calloc((size_t)img->w, sizeof(int));
 
     get_h_projection(img, h_proj);
     get_w_projection(img, w_proj);
