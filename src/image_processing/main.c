@@ -6,6 +6,7 @@
 #include <grayscale.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <sys/stat.h> // Pour mkdir (pour créer le dossier output)
 
 static void print_usage(void)
 {
@@ -102,22 +103,31 @@ int main_deprec(int argc, char *argv[])
     return 0;
 }
 
-int main(void)
-{
-    SDL_Surface *img = IMG_Load("images/level_1_image_1.bmp"); // a toi de changer La boss
-    if (!img)
-    {
-        printf("Error loading input.png\n");
+//extractor
+int main(int argc, char *argv[]) {
+    // 1. Initialisation SDL
+    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+        printf("Erreur SDL_Init: %s\n", SDL_GetError());
+        return 1;
+    }
+    if (!(IMG_Init(IMG_INIT_PNG) & IMG_INIT_PNG)) {
+        printf("Erreur IMG_Init: %s\n", IMG_GetError());
         return 1;
     }
 
-    struct grid_bounds g = get_grid(img);
+    // 2. Création du dossier de sortie s'il n'existe pas (pour Linux/Mac)
+    // Sinon créez juste un dossier nommé "output" à la racine de votre projet manuellement.
+    struct stat st = {0};
+    if (stat("output", &st) == -1) {
+        mkdir("output", 0700);
+    }
 
-    extract_cells(img, g, 10, 10, "cell");
-    extract_list(img, g, "word_list.png");
+    // 3. Appel de la fonction avec le BON CHEMIN RELATIF
+    // On suppose que vous lancez l'exécutable depuis la racine du projet
+    printf("Traitement de l'image...\n");
+    extract_grid_data("images/level_1_image_1.png", "output");
 
-    SDL_FreeSurface(img);
-    IMG_Quit();
+    // 4. Nettoyage
     SDL_Quit();
     return 0;
 }
