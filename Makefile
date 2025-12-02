@@ -20,17 +20,16 @@ WARNS:=\
     -Wvla\
     -Wunreachable-code
 
+
+CFLAGS+= \
+    --std=gnu99 \
+    -O3 \
+    -I$(INCLUDE)
+
 ifdef DEBUG
     CFLAGS+= \
-	    --std=gnu99 \
 	    -g3 \
-	    -fsanitize=address,undefined \
-	    -I$(INCLUDE)
-else
-    CFLAGS+= \
-	    --std=gnu99 \
-	    -O3 \
-	    -I$(INCLUDE)
+	    -fsanitize=address,undefined
 endif
 
 
@@ -48,7 +47,7 @@ LIBS:=-lm -lSDL2 -lSDL2_image
 
 all: neural solver interface image_processing
 clean:
-	rm -f $(OBJ_SOLVER) $(OBJ_NEURAL) $(OBJ_INTERFACE)
+	rm -f $(OBJ_SOLVER) $(OBJ_NEURAL) $(OBJ_INTERFACE) $(OBJ_IMG)
 
 neural: $(OBJ_NEURAL)
 	$(CC) $(CFLAGS) $(WARNS) -o neural.out $(OBJ_NEURAL) $(LIBS)
