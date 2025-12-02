@@ -2,29 +2,17 @@
 #define GRID_EXTRACTOR_H
 
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_image.h>
 
-#define LINE_THRESHOLD 100
+/**
+ * Main function to process the OCR image.
+ * * 1. Loads the image.
+ * 2. Separates the Grid from the Word List (Left/Right split).
+ * 3. Saves crops of the Grid and List.
+ * 4. Detects cells inside the grid and saves them as individual images.
+ * * @param input_path Path to the source image (e.g., "assets/level_1.png")
+ * @param output_folder Folder where pngs will be saved (e.g., "output")
+ */
+void extract_grid_data(const char *input_path, const char *output_folder);
 
-struct grid_bounds {
-    int top;
-    int bottom;
-    int left;
-    int right;
-};
-
-void get_h_projection(SDL_Surface *img, int *proj);
-
-void get_w_projection(SDL_Surface *img, int *proj);
-
-void find_bounds(int *proj, int length, int *start, int *end);
-
-struct grid_bounds get_grid(SDL_Surface *img);
-
-void save_image(SDL_Surface *img, SDL_Rect rect, const char *filename);
-
-void extract_cells(SDL_Surface *img, struct grid_bounds g, int rows, int cols, const char *prefix);
-
-void extract_list(SDL_Surface *img, struct grid_bounds g, const char *filename);
-
-//I have to change the main file
 #endif
