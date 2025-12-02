@@ -23,13 +23,16 @@ WARNS:=\
 
 CFLAGS+= \
     --std=gnu99 \
-    -O3 \
     -I$(INCLUDE)
 
 ifdef DEBUG
-    CFLAGS+= \
+	CFLAGS+= \
 	    -g3 \
 	    -fsanitize=address,undefined
+else
+	CFLAGS += \
+	    -flto \
+	    -O3
 endif
 
 
