@@ -48,21 +48,54 @@ SDL_Surface *grayscale(SDL_Surface *src) {
 }
 
 uint8_t get_threshold(const SDL_Surface *gray) {
-  uint64_t histogram[256];
+  uint64_t histogram[256] = {0};
 
   uint32_t *pixels = (uint32_t *)gray->pixels; // all pixels of the gray picture
-  for (int y = 0; y < gray->h; y++) {
-    for (int x = 0; x < gray->w; x++) {
-      uint8_t r = 0;
-      uint8_t g = 0;
-      uint8_t b = 0;
+  uint64_t total_pixels = gray->w * gray->h;
 
-      SDL_GetRGB(pixels[(y * gray->w) + x], gray->format, &r, &g, &b);
-      // Because we take a grayscale image, r = g = b
-      histogram[r]++;
-    }
+  for (int i = 0; i < total_pixels; i++)
+  {
+	uint8_t r, g, b;
+	SDL_GetRGB(pixels[i], gray->format, &r, &g, &b);
+	histogram[r]++;
   }
-  return 127;
+
+  double sum = 0;
+  for (int y = 0; y < 256; y++) {
+      sum+= y * histogram[y];
+  }
+
+  double sumB = 0; //Sum of Background intensity
+  int wB = 0; //Weight (count) of background
+  int wF = 0; //Weight (count) of foreground
+
+  double varMax = 0;
+  int threshold = 0;
+
+  for(int t = 0; t<256; t++)
+  {
+	wB += histogram[t];
+	if(wB == 0) continue; //Update wights
+
+	wF = total_pixels - wB;
+	if(wF == 0)break; //All pixels processed
+	
+	//Update sum of back
+	sumB = (double)(t * histogram[t]);
+
+	double mB = sumB / wB;
+	double mF = (sum - sumB) / wF;
+
+	double varBetween = (double)wB * (double)wF * (mB - mF) * (mB - mF);
+
+	if(varBetween > varMax){
+	  varMax = varBetween;
+	  threshold = t;
+	}
+  }
+
+  printf("Otsu calculated : %d\n", threshold);
+  return (uint8_t) threshold;
 }
 
 SDL_Surface *apply_threshold(SDL_Surface *src, uint8_t threshold) {

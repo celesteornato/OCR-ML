@@ -120,7 +120,7 @@ int main(int argc, char *argv[])
         return 1;
     }
     printf("Traitement de l'image...\n");
-    extract_grid_data("images/level_1_image_1.png", "output");
+    extract_grid_data(argv[1], "output");
     SDL_Quit();
     return 0;
 }

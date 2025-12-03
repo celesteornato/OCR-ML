@@ -186,6 +186,10 @@ static void extract_cells(SDL_Surface *img, SDL_Rect grid_rect,
     in_line = 0;
     for (int x = 0; x < grid_rect.w; x++)
     {
+	if(x < 5 && v_proj[x] > threshold_v)
+	{
+	  continue;
+	}
         if (v_proj[x] > threshold_v)
         {
             if (!in_line)
