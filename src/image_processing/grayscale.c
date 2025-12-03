@@ -48,54 +48,60 @@ SDL_Surface *grayscale(SDL_Surface *src) {
 }
 
 uint8_t get_threshold(const SDL_Surface *gray) {
-  uint64_t histogram[256] = {0};
+    uint64_t histogram[256] = {0}; 
+    
+    uint32_t *pixels = (uint32_t *)gray->pixels;
+    uint64_t total_pixels = gray->w * gray->h;
 
-  uint32_t *pixels = (uint32_t *)gray->pixels; // all pixels of the gray picture
-  uint64_t total_pixels = gray->w * gray->h;
+    
+    for (int i = 0; i < total_pixels; i++) {
+        uint8_t r, g, b;
+        // Since it's grayscale, r=g=b. We just need one channel.
+        SDL_GetRGB(pixels[i], gray->format, &r, &g, &b);
+        histogram[r]++;
+    }
 
-  for (int i = 0; i < total_pixels; i++)
-  {
-	uint8_t r, g, b;
-	SDL_GetRGB(pixels[i], gray->format, &r, &g, &b);
-	histogram[r]++;
-  }
+    // Otsu's Algorithm Wsh
+    double sum = 0;
+    for (int i = 0; i < 256; i++) {
+        sum += i * histogram[i];
+    }
 
-  double sum = 0;
-  for (int y = 0; y < 256; y++) {
-      sum+= y * histogram[y];
-  }
+    double sumB = 0;    // Sum of background intensity
+    int wB = 0;         // Weight (count) of background
+    int wF = 0;         // Weight (count) of foreground
+    
+    double varMax = 0;
+    int threshold = 0;
 
-  double sumB = 0; //Sum of Background intensity
-  int wB = 0; //Weight (count) of background
-  int wF = 0; //Weight (count) of foreground
+    for (int t = 0; t < 256; t++) {
+        
+        wB += histogram[t];
+        if (wB == 0) continue;
 
-  double varMax = 0;
-  int threshold = 0;
+        wF = total_pixels - wB;
+        if (wF == 0) break; // All pixels are processed
 
-  for(int t = 0; t<256; t++)
-  {
-	wB += histogram[t];
-	if(wB == 0) continue; //Update wights
+        
+        sumB += (double)(t * histogram[t]);
 
-	wF = total_pixels - wB;
-	if(wF == 0)break; //All pixels processed
-	
-	//Update sum of back
-	sumB = (double)(t * histogram[t]);
+        
+        double mB = sumB / wB;            
+        double mF = (sum - sumB) / wF;    
 
-	double mB = sumB / wB;
-	double mF = (sum - sumB) / wF;
+        
+        
+        double varBetween = (double)wB * (double)wF * (mB - mF) * (mB - mF);
 
-	double varBetween = (double)wB * (double)wF * (mB - mF) * (mB - mF);
+        
+        if (varBetween > varMax) {
+            varMax = varBetween;
+            threshold = t;
+        }
+    }
 
-	if(varBetween > varMax){
-	  varMax = varBetween;
-	  threshold = t;
-	}
-  }
-
-  printf("Otsu calculated : %d\n", threshold);
-  return (uint8_t) threshold;
+    printf("Otsu Threshold calculated: %d\n", threshold); // Debug print
+    return (uint8_t)threshold;
 }
 
 SDL_Surface *apply_threshold(SDL_Surface *src, uint8_t threshold) {

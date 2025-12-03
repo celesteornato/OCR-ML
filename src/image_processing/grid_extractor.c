@@ -1,4 +1,5 @@
 #include "../../include/grid_extractor.h"
+#include "../../include/grayscale.h" // Inclusion necessaire pour Otsu
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <stdio.h>
@@ -16,18 +17,14 @@ static int get_pixel_binary(SDL_Surface *surface, int x, int y)
     Uint8 r, g, b;
     SDL_GetRGB(pixel, surface->format, &r, &g, &b);
 
-    // Threshold: >128 is white, <128 is black
     return (r > 128) ? 1 : 0;
 }
 
-// Saves a specific rectangle of the surface to a PNG file
 static void save_sub_image(SDL_Surface *src, SDL_Rect rect,
                            const char *filename)
 {
     if (rect.w <= 0 || rect.h <= 0)
-    {
         return;
-    }
 
     SDL_Surface *sub = SDL_CreateRGBSurface(0, rect.w, rect.h, 32, 0x00FF0000,
                                             0x0000FF00, 0x000000FF, 0xFF000000);
@@ -48,81 +45,92 @@ static void split_grid_and_list(SDL_Surface *img, SDL_Rect *grid_rect,
     int width = img->w;
     int height = img->h;
 
-    int max_gap = 0;
-    int current_gap = 0;
-    int split_x = -1;
+    // Nouvelle logique basée sur la différence de densité
+    int best_split_x = -1;
+    double best_score = -1.0;
 
-    // Vertical Projection: Scan columns to find the big vertical white gap
-    for (int x = 0; x < width; x++)
+    // we scan the central zone
+    for (int x = width * 0.1; x < width * 0.9; x++)
     {
-        int black_pixels = 0;
-        for (int y = 0; y < height; y++)
+        // gap detection (white space)
+        int is_gap = 1;
+        // band of 5 pixels
+        for (int k = 0; k < 5 && (x + k) < width; k++)
         {
-            if (get_pixel_binary(img, x, y) == 0)
+            int black_pixels = 0;
+            for (int y = 0; y < height; y++)
             {
-                black_pixels++;
+                if (get_pixel_binary(img, x + k, y) == 0)
+                    black_pixels++;
+            }
+            if (black_pixels > height * 0.01) // Tolerance of 1%
+            {
+                is_gap = 0;
+                break;
             }
         }
-        // If column has very little ink, count it as gap
-        if (black_pixels < 2)
+
+        if (is_gap)
         {
-            current_gap++;
-        }
-        else
-        {
-            // Check if this was the largest gap found so far
-            if (current_gap > max_gap && x > width * 0.1 && x < width * 0.9)
+            // Calcul du contraste de densité (Gauche vs Droite)
+            long left_pixels = 0, right_pixels = 0;
+            int window = 100; 
+
+            int start_L = (x - window > 0) ? x - window : 0;
+            for (int i = start_L; i < x; i++)
+                for (int j = 0; j < height; j++)
+                    if (get_pixel_binary(img, i, j) == 0)
+                        left_pixels++;
+
+            int end_R = (x + window < width) ? x + window : width;
+            for (int i = x; i < end_R; i++)
+                for (int j = 0; j < height; j++)
+                    if (get_pixel_binary(img, i, j) == 0)
+                        right_pixels++;
+
+            // Score = Densité Max / Densité Min
+            double score = 0;
+            if (left_pixels > right_pixels && right_pixels > 0)
+                score = (double)left_pixels / right_pixels;
+            else if (right_pixels > left_pixels && left_pixels > 0)
+                score = (double)right_pixels / left_pixels;
+
+            if (score > best_score)
             {
-                max_gap = current_gap;
-                split_x = x - (current_gap / 2);
+                best_score = score;
+                best_split_x = x;
             }
-            current_gap = 0;
+            x += 5; // Sauter le reste du gap actuel
         }
     }
-    // If no split found, assume everything is grid
-    if (split_x == -1)
+
+    if (best_split_x == -1)
     {
         *grid_rect = (SDL_Rect){0, 0, width, height};
         *list_rect = (SDL_Rect){0, 0, 0, 0};
         return;
     }
 
-    // Determine which side is the grid (the denser side)
-    long left_density = 0;
-    long right_density = 0;
-    for (int x = 0; x < split_x; x++)
-    {
-        for (int y = 0; y < height; y++)
-        {
-            if (get_pixel_binary(img, x, y) == 0)
-            {
-                left_density++;
-            }
-        }
-    }
+    // Déterminer le coté grille (le plus dense globalement)
+    long left_tot = 0, right_tot = 0;
+    for (int i = 0; i < best_split_x; i++)
+        for (int j = 0; j < height; j++)
+            if (get_pixel_binary(img, i, j) == 0)
+                left_tot++;
+    for (int i = best_split_x; i < width; i++)
+        for (int j = 0; j < height; j++)
+            if (get_pixel_binary(img, i, j) == 0)
+                right_tot++;
 
-    for (int x = split_x; x < width; x++)
+    if (right_tot > left_tot)
     {
-        for (int y = 0; y < height; y++)
-        {
-            if (get_pixel_binary(img, x, y) == 0)
-            {
-                right_density++;
-            }
-        }
-    }
-
-    if (right_density > left_density)
-    {
-        // Grid is on the Right
-        *list_rect = (SDL_Rect){0, 0, split_x, height};
-        *grid_rect = (SDL_Rect){split_x, 0, width - split_x, height};
+        *list_rect = (SDL_Rect){0, 0, best_split_x, height};
+        *grid_rect = (SDL_Rect){best_split_x, 0, width - best_split_x, height};
     }
     else
     {
-        // Grid is on the Left
-        *grid_rect = (SDL_Rect){0, 0, split_x, height};
-        *list_rect = (SDL_Rect){split_x, 0, width - split_x, height};
+        *grid_rect = (SDL_Rect){0, 0, best_split_x, height};
+        *list_rect = (SDL_Rect){best_split_x, 0, width - best_split_x, height};
     }
 }
 
@@ -130,15 +138,11 @@ static void extract_cells(SDL_Surface *img, SDL_Rect grid_rect,
                           const char *output_folder)
 {
     if (grid_rect.w <= 0 || grid_rect.h <= 0)
-    {
         return;
-    }
 
-    // Allocate histogram arrays
     int *h_proj = calloc((size_t)grid_rect.h, sizeof(int));
     int *v_proj = calloc((size_t)grid_rect.w, sizeof(int));
 
-    // Fill Histograms
     for (int y = 0; y < grid_rect.h; y++)
     {
         for (int x = 0; x < grid_rect.w; x++)
@@ -151,18 +155,21 @@ static void extract_cells(SDL_Surface *img, SDL_Rect grid_rect,
         }
     }
 
-// Detect Lines (Peaks in histograms)
-#define MAX_LINES 200
+#define MAX_LINES 300 // Augmented for if necessary
     int h_lines[MAX_LINES];
     int v_lines[MAX_LINES];
     int h_count = 0;
     int v_count = 0;
-    // A grid line must span at least 40% of the dimension
-    int threshold_h = (2 * grid_rect.w) / 5;
-    int threshold_v = (2 * grid_rect.h) / 5;
 
+    // Seuil réduit à 5% pour détecter les lignes des images froissées ca te va celeste 0.05 ?
+    int threshold_h = (int)(grid_rect.w * 0.05);
+    int threshold_v = (int)(grid_rect.h * 0.05);
+
+    // Ajout d'une tolérance pour les lignes discontinues 
     int in_line = 0;
-    // Find Horizontal Lines
+    int gap_tolerance = 0;
+
+    // Lignes Horizontales
     for (int y = 0; y < grid_rect.h; y++)
     {
         if (h_proj[y] > threshold_h)
@@ -170,46 +177,59 @@ static void extract_cells(SDL_Surface *img, SDL_Rect grid_rect,
             if (!in_line)
             {
                 if (h_count < MAX_LINES)
-                {
                     h_lines[h_count++] = y;
-                }
                 in_line = 1;
             }
+            gap_tolerance = 0;
         }
         else
         {
-            in_line = 0;
+            if (in_line)
+            {
+                gap_tolerance++;
+                if (gap_tolerance > 2) // Si trou > 2 pixels, fin de ligne
+                    in_line = 0;
+            }
         }
     }
 
-    // Find Vertical Lines
+    // Lignes Verticales
     in_line = 0;
+    gap_tolerance = 0;
     for (int x = 0; x < grid_rect.w; x++)
     {
-	if(x < 5 && v_proj[x] > threshold_v)
-	{
-	  continue;
-	}
+        // Ignorer le bord gauche immédiat
+        if (!in_line && x < 5 && v_proj[x] > threshold_v)
+            continue;
+
         if (v_proj[x] > threshold_v)
         {
             if (!in_line)
             {
                 if (v_count < MAX_LINES)
-                {
                     v_lines[v_count++] = x;
-                }
                 in_line = 1;
             }
+            gap_tolerance = 0;
         }
         else
         {
-            in_line = 0;
+            if (in_line)
+            {
+                gap_tolerance++;
+                if (gap_tolerance > 2)
+                    in_line = 0;
+            }
         }
     }
 
-    // Slice Cells based on intersection of lines
-    char filename[512];
+    // Calcul taille moyenne pour filtrer le bruit (double colonnes)
+    int min_cell_w = (v_count > 1) ? (v_lines[v_count - 1] - v_lines[0]) / v_count / 2 : 10;
+    int min_cell_h = (h_count > 1) ? (h_lines[h_count - 1] - h_lines[0]) / h_count / 2 : 10;
+    if (min_cell_w < 5) min_cell_w = 10;
+    if (min_cell_h < 5) min_cell_h = 10;
 
+    char filename[512];
     for (int i = 0; i < h_count - 1; i++)
     {
         for (int j = 0; j < v_count - 1; j++)
@@ -220,8 +240,8 @@ static void extract_cells(SDL_Surface *img, SDL_Rect grid_rect,
             cell.w = v_lines[j + 1] - v_lines[j];
             cell.h = h_lines[i + 1] - h_lines[i];
 
-            // Ignore noise/tiny boxes
-            if (cell.w < 5 || cell.h < 5)
+            //Filtre plus strict sur la taille minimale
+            if (cell.w < min_cell_w || cell.h < min_cell_h)
             {
                 continue;
             }
@@ -246,10 +266,17 @@ void extract_grid_data(const char *input_path, const char *output_folder)
         return;
     }
 
-    // Convert to RGBA32 for consistent pixel access
-    SDL_Surface *fmt_img =
-        SDL_ConvertSurfaceFormat(img, SDL_PIXELFORMAT_RGBA32, 0);
-    SDL_FreeSurface(img);
+    // Intégration complète Niveaux de gris + Otsu
+    SDL_Surface *gray_img = grayscale(img);
+    SDL_FreeSurface(img); 
+
+    uint8_t threshold = get_threshold(gray_img);
+    SDL_Surface *bin_img = apply_threshold(gray_img, threshold);
+    SDL_FreeSurface(gray_img);
+    
+    // Conversion finale en RGBA32 pour le traitement
+    SDL_Surface *fmt_img = SDL_ConvertSurfaceFormat(bin_img, SDL_PIXELFORMAT_RGBA32, 0);
+    SDL_FreeSurface(bin_img);
 
     SDL_Rect grid_rect;
     SDL_Rect list_rect;
@@ -257,7 +284,6 @@ void extract_grid_data(const char *input_path, const char *output_folder)
     printf("[GridExtractor] Analyzing image structure...\n");
     split_grid_and_list(fmt_img, &grid_rect, &list_rect);
 
-    // Save crops
     char path[512];
     sprintf(path, "%s/grid_crop.png", output_folder);
     save_sub_image(fmt_img, grid_rect, path);
