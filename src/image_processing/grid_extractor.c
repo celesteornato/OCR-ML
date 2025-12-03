@@ -1,10 +1,12 @@
-#include "grid_extractor.h"
+#include "../../include/grid_extractor.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_image.h>
 
-// --- INTERNAL HELPER FUNCTIONS ---
 
-// Returns 1 if pixel is White (Background), 0 if Black (Ink/Line)
+// --- INTERNAL FUNCTIONS ---
+
 static int get_pixel_binary(SDL_Surface *surface, int x, int y) {
     if (x < 0 || x >= surface->w || y < 0 || y >= surface->h) return 1;
 
@@ -32,9 +34,8 @@ static void save_sub_image(SDL_Surface *src, SDL_Rect rect, const char *filename
     SDL_FreeSurface(sub);
 }
 
-// --- CORE LOGIC ---
+// --- CORE ---
 
-// 1. Separate the Grid from the List
 static void split_grid_and_list(SDL_Surface *img, SDL_Rect *grid_rect, SDL_Rect *list_rect) {
     int width = img->w;
     int height = img->h;
@@ -49,12 +50,11 @@ static void split_grid_and_list(SDL_Surface *img, SDL_Rect *grid_rect, SDL_Rect 
         for (int y = 0; y < height; y++) {
             if (get_pixel_binary(img, x, y) == 0) black_pixels++;
         }
-        
         // If column has very little ink, count it as gap
         if (black_pixels < 2) { 
             current_gap++;
         } else {
-            // Check if this was the largest gap found so far (ignoring edges)
+            // Check if this was the largest gap found so far
             if (current_gap > max_gap && x > width * 0.1 && x < width * 0.9) {
                 max_gap = current_gap;
                 split_x = x - (current_gap / 2);
@@ -62,8 +62,7 @@ static void split_grid_and_list(SDL_Surface *img, SDL_Rect *grid_rect, SDL_Rect 
             current_gap = 0;
         }
     }
-
-    // Fallback: If no split found, assume everything is grid
+    //If no split found, assume everything is grid
     if (split_x == -1) {
         *grid_rect = (SDL_Rect){0, 0, width, height};
         *list_rect = (SDL_Rect){0, 0, 0, 0};
@@ -89,7 +88,6 @@ static void split_grid_and_list(SDL_Surface *img, SDL_Rect *grid_rect, SDL_Rect 
     }
 }
 
-// 2. Extract Cells from the Grid area
 static void extract_cells(SDL_Surface *img, SDL_Rect grid_rect, const char *output_folder) {
     if (grid_rect.w <= 0 || grid_rect.h <= 0) return;
 
@@ -97,7 +95,7 @@ static void extract_cells(SDL_Surface *img, SDL_Rect grid_rect, const char *outp
     int *h_proj = calloc(grid_rect.h, sizeof(int));
     int *v_proj = calloc(grid_rect.w, sizeof(int));
 
-    // A. Fill Histograms (Projecting inside the grid_rect)
+    // Fill Histograms 
     for (int y = 0; y < grid_rect.h; y++) {
         for (int x = 0; x < grid_rect.w; x++) {
             if (get_pixel_binary(img, grid_rect.x + x, grid_rect.y + y) == 0) {
@@ -107,18 +105,16 @@ static void extract_cells(SDL_Surface *img, SDL_Rect grid_rect, const char *outp
         }
     }
 
-    // B. Detect Lines (Peaks in histograms)
+    // Detect Lines (Peaks in histograms)
     #define MAX_LINES 200
     int h_lines[MAX_LINES];
     int v_lines[MAX_LINES];
     int h_count = 0, v_count = 0;
-    
-    // Threshold: A grid line must span at least 40% of the dimension
+    //A grid line must span at least 40% of the dimension
     int threshold_h = grid_rect.w * 0.4; 
     int threshold_v = grid_rect.h * 0.4;
 
     int in_line = 0;
-
     // Find Horizontal Lines
     for (int y = 0; y < grid_rect.h; y++) {
         if (h_proj[y] > threshold_h) {
@@ -144,7 +140,7 @@ static void extract_cells(SDL_Surface *img, SDL_Rect grid_rect, const char *outp
         }
     }
 
-    // C. Slice Cells based on intersection of lines
+    // Slice Cells based on intersection of lines
     char filename[512];
     
     for (int i = 0; i < h_count - 1; i++) {
@@ -158,7 +154,6 @@ static void extract_cells(SDL_Surface *img, SDL_Rect grid_rect, const char *outp
             // Ignore noise/tiny boxes
             if (cell.w < 5 || cell.h < 5) continue;
 
-            // Save: cell_ROW_COL.png
             sprintf(filename, "%s/cell_%02d_%02d.png", output_folder, i, j);
             save_sub_image(img, cell, filename);
         }
@@ -168,7 +163,7 @@ static void extract_cells(SDL_Surface *img, SDL_Rect grid_rect, const char *outp
     free(v_proj);
 }
 
-// --- PUBLIC FUNCTION ---
+// --- MAIN FUNCTION ---
 
 void extract_grid_data(const char *input_path, const char *output_folder) {
     SDL_Surface *img = IMG_Load(input_path);

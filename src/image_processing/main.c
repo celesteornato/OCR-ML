@@ -70,7 +70,7 @@ static int test_p2bmap(const char path[static 1])
     return 1;
 }
 
-int main(int argc, char *argv[])
+int main_deprec(int argc, char *argv[])
 {
     int opt = 0;
     if (argc < 2)
@@ -106,9 +106,9 @@ int main(int argc, char *argv[])
 }
 
 // extractor
-int main_deprec(int argc, char *argv[])
+int main(int argc, char *argv[])
 {
-    // 1. Initialisation SDL
+
     if (SDL_Init(SDL_INIT_VIDEO) < 0)
     {
         printf("Erreur SDL_Init: %s\n", SDL_GetError());
@@ -119,22 +119,8 @@ int main_deprec(int argc, char *argv[])
         printf("Erreur IMG_Init: %s\n", IMG_GetError());
         return 1;
     }
-
-    // 2. Création du dossier de sortie s'il n'existe pas (pour Linux/Mac)
-    // Sinon créez juste un dossier nommé "output" à la racine de votre projet
-    // manuellement.
-    struct stat st = {0};
-    if (stat("output", &st) == -1)
-    {
-        mkdir("output", 0700);
-    }
-
-    // 3. Appel de la fonction avec le BON CHEMIN RELATIF
-    // On suppose que vous lancez l'exécutable depuis la racine du projet
     printf("Traitement de l'image...\n");
     extract_grid_data("images/level_1_image_1.png", "output");
-
-    // 4. Nettoyage
     SDL_Quit();
     return 0;
 }
