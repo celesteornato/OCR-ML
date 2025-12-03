@@ -17,4 +17,7 @@ SDL_Surface *apply_threshold(SDL_Surface *src, uint8_t threshold);
 int path_to_bitmap(const char path[restrict static 1],
                    uint8_t bitmap[restrict static 1], int h, int w);
 
+int path_to_bytes(const char path[restrict static 1],
+                   uint8_t bitmap[restrict static 1], int h, int w);
+
 #endif 

@@ -10,13 +10,14 @@
 
 static void print_usage(void)
 {
-    printf("Image Processing - Grayscale and Threshold an image or convert it to "
-           "a bitmap\n"
-           "Usage: image_process -b|-t path\n"
-           "Arguments:\n"
-           "\t-b: Convert an image to its bitmap representation and print it.\n"
-           "\t-t: Convert and save an image both as its thresholded "
-           "representation and as a grayscale\n");
+    printf(
+        "Image Processing - Grayscale and Threshold an image or convert it to "
+        "a bitmap\n"
+        "Usage: image_process -b|-t path\n"
+        "Arguments:\n"
+        "\t-b: Convert an image to its bitmap representation and print it.\n"
+        "\t-t: Convert and save an image both as its thresholded "
+        "representation and as a grayscale\n");
 }
 
 static int test_thresholding(char path[static 1])
@@ -29,8 +30,9 @@ static int test_thresholding(char path[static 1])
         return 0;
     }
 
-    SDL_Surface *gray = grayscale(img);                  // gray
-    uint8_t threshold = get_threshold(gray);             // thresold of gray with otsu method
+    SDL_Surface *gray = grayscale(img); // gray
+    uint8_t threshold =
+        get_threshold(gray); // thresold of gray with otsu method
     SDL_Surface *bnw = apply_threshold(gray, threshold); // final result
 
     printf("Threshold = %d\n", threshold);
@@ -68,7 +70,7 @@ static int test_p2bmap(const char path[static 1])
     return 1;
 }
 
-int main_deprec(int argc, char *argv[])
+int main(int argc, char *argv[])
 {
     int opt = 0;
     if (argc < 2)
@@ -103,22 +105,27 @@ int main_deprec(int argc, char *argv[])
     return 0;
 }
 
-//extractor
-int main(int argc, char *argv[]) {
+// extractor
+int main_deprec(int argc, char *argv[])
+{
     // 1. Initialisation SDL
-    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+    if (SDL_Init(SDL_INIT_VIDEO) < 0)
+    {
         printf("Erreur SDL_Init: %s\n", SDL_GetError());
         return 1;
     }
-    if (!(IMG_Init(IMG_INIT_PNG) & IMG_INIT_PNG)) {
+    if (!(IMG_Init(IMG_INIT_PNG) & IMG_INIT_PNG))
+    {
         printf("Erreur IMG_Init: %s\n", IMG_GetError());
         return 1;
     }
 
     // 2. Création du dossier de sortie s'il n'existe pas (pour Linux/Mac)
-    // Sinon créez juste un dossier nommé "output" à la racine de votre projet manuellement.
+    // Sinon créez juste un dossier nommé "output" à la racine de votre projet
+    // manuellement.
     struct stat st = {0};
-    if (stat("output", &st) == -1) {
+    if (stat("output", &st) == -1)
+    {
         mkdir("output", 0700);
     }
 

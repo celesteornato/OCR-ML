@@ -25,14 +25,20 @@ CFLAGS+= \
     --std=gnu99 \
     -I$(INCLUDE)
 
+ifdef DEBUGPRINT
+	CFLAGS += -DDEBUGPRINT
+endif
+
 ifdef DEBUG
 	CFLAGS+= \
+	    -DDEBUG\
 	    -g3 \
-	    -fsanitize=address,undefined
+	    -fsanitize=address,undefined 
 else
 	CFLAGS += \
 	    -flto \
-	    -O3
+	    -O3 \
+	    -ffast-math # Living on the edge
 endif
 
 
