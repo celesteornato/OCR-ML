@@ -124,7 +124,7 @@ int main(int argc, char **argv) {
   while (running) {
     running = event_loop(ren, &angle);
 
-    SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
+    SDL_SetRenderDrawColor(ren, 255, 255, 255, 255);
     SDL_RenderClear(ren);
     int ww;
     int wh;
