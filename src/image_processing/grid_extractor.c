@@ -134,142 +134,154 @@ static void split_grid_and_list(SDL_Surface *img, SDL_Rect *grid_rect,
     }
 }
 
-// --- NOUVELLE LOGIQUE DE NETTOYAGE ---
+// --- FONCTION DE VALIDATION (Anti-Texte) ---
 
-static int clean_lines(int *lines, int count, int min_gap) {
-    if (count <= 0) return 0;
-    
-    int cleaned[count];
-    int new_count = 0;
-    
-    // On ajoute la première ligne
-    cleaned[0] = lines[0];
-    new_count++;
-    
-    for (int i = 1; i < count; i++) {
-        int diff = lines[i] - lines[i-1];
-        
-        // Si la ligne est très proche de la précédente (c'est le même trait épais)
-        if (diff < min_gap) {
-            // On garde la moyenne des deux pour centrer, ou juste la première
-            // Ici on ignore simplement la seconde pour ne garder qu'un trait par zone
-            continue;
+// Vérifie si une ligne contient un segment noir assez long pour être une grille.
+// Les lignes de texte sont composées de petits segments (lettres) séparés par du blanc.
+static int is_line_solid(SDL_Surface *img, int pos, int is_horizontal, SDL_Rect area) {
+    int max_run = 0;     // Longueur max du segment noir continu trouvé
+    int current_run = 0; // Segment actuel
+   
+    // Définir la longueur à scanner
+    int limit = is_horizontal ? area.w : area.h;
+   
+    // Pour éviter de scanner toute la largeur (lent), on peut scanner le centre
+    // ou scanner toute la ligne. Ici on scanne tout pour la précision.
+    for (int k = 0; k < limit; k++) {
+        int x = is_horizontal ? area.x + k : area.x + pos;
+        int y = is_horizontal ? area.y + pos : area.y + k;
+       
+        // Si pixel Noir (attention, get_pixel_binary renvoie 0 pour noir)
+        if (get_pixel_binary(img, x, y) == 0) {
+            current_run++;
         } else {
-            cleaned[new_count++] = lines[i];
+            // Pixel Blanc : fin du segment
+            if (current_run > max_run) max_run = current_run;
+            current_run = 0;
         }
     }
-    
-    // Copie de retour
-    for (int i = 0; i < new_count; i++) {
-        lines[i] = cleaned[i];
-    }
-    
-    return new_count;
+    // Check final (si la ligne finit par du noir)
+    if (current_run > max_run) max_run = current_run;
+
+    // HEURISTIQUE MAGIQUE :
+    // Une ligne de grille doit avoir un segment continu d'au moins 1/8eme de la taille totale.
+    // Une lettre (même un "W" large) dépasse rarement 1/15eme ou 1/20eme de la grille.
+    // Pour l'image 1 (lignes fines mais continues), ça passera.
+    // Pour le texte, ça échouera.
+    return (max_run > limit / 8);
 }
 
-// Vérifie si une ligne (ou colonne) est "continue"
-// Retourne 1 si c'est une ligne solide (grille), 0 si c'est du texte (avec des trous)
-static int is_continuous_line(SDL_Surface *img, int pos, int is_horizontal, int length, int offset_x, int offset_y) {
-    int max_gap = 0;
-    int current_gap = 0;
-    int tolerance = 0; // Nombre de pixels blancs tolérés dans la ligne (bruit)
-    
-    // On parcourt la ligne
-    for (int k = 0; k < length; k++) {
-        int x = is_horizontal ? offset_x + k : offset_x + pos;
-        int y = is_horizontal ? offset_y + pos : offset_y + k;
-        
-        if (get_pixel_binary(img, x, y) == 0) { // Noir (Pixel de ligne)
-            current_gap = 0;
-        } else { // Blanc (Trou ?)
-            current_gap++;
-            if (current_gap > max_gap) max_gap = current_gap;
-        }
-    }
-    
-    // Si le plus grand trou est petit (moins de 5% de la longueur), c'est une ligne continue
-    // Une ligne de texte aura des trous énormes entre les lettres.
-    if (max_gap < length * 0.05) return 1; 
-    return 0;
-}
-
+// --- FONCTION PRINCIPALE ---
 
 static void extract_cells(SDL_Surface *img, SDL_Rect grid_rect, const char *output_folder)
 {
     if (grid_rect.w <= 0 || grid_rect.h <= 0) return;
 
-    // --- 1. DETECTION BASÉE SUR LA CONTINUITÉ ---
-    // Au lieu de projeter, on scanne chaque ligne/colonne pour voir si elle est continue
-    
+    // 1. Histogrammes (Méthode classique)
+    int *h_proj = calloc((size_t)grid_rect.h, sizeof(int));
+    int *v_proj = calloc((size_t)grid_rect.w, sizeof(int));
+
+    for (int y = 0; y < grid_rect.h; y++) {
+        for (int x = 0; x < grid_rect.w; x++) {
+            if (get_pixel_binary(img, grid_rect.x + x, grid_rect.y + y) == 0) {
+                h_proj[y]++;
+                v_proj[x]++;
+            }
+        }
+    }
+
     #define MAX_LINES 100
     int h_lines[MAX_LINES];
     int v_lines[MAX_LINES];
     int h_count = 0;
     int v_count = 0;
 
-    // A. Lignes Horizontales
+    // SEUILS DE DENSITÉ
+    // On garde un seuil bas pour capter les lignes fines de l'image 1
+    // La vraie filtration se fera via is_line_solid
+    int thresh_h = grid_rect.w * 0.10;
+    int thresh_v = grid_rect.h * 0.10;
+
+    // --- ANALYSE HORIZONTALE ---
+    int start_y = -1;
     for (int y = 0; y < grid_rect.h; y++) {
-        // Optimisation : On ne vérifie pas chaque pixel si on vient d'en trouver une
-        // (Sauf pour déterminer l'épaisseur, mais on simplifie ici)
-        
-        // On vérifie si la ligne Y est "continue" sur la largeur de la grille
-        if (is_continuous_line(img, y, 1, grid_rect.w, grid_rect.x, grid_rect.y)) {
-            if (h_count < MAX_LINES) {
-                h_lines[h_count++] = y;
-                // On saute quelques pixels pour éviter de noter tous les pixels d'un trait épais
-                y += 4; 
+        // Condition 1: Densité suffisante
+        // Condition 2: Est-ce vraiment une ligne solide et pas du texte ?
+        if (h_proj[y] > thresh_h && is_line_solid(img, y, 1, grid_rect)) {
+            if (start_y == -1) start_y = y; // Début bloc
+        } else {
+            if (start_y != -1) {
+                // Fin bloc, on prend le milieu
+                int center = start_y + (y - 1 - start_y) / 2;
+                // Filtrage doublons (si lignes très proches < 10px)
+                if (h_count == 0 || (center - h_lines[h_count-1] > 15)) {
+                    if (h_count < MAX_LINES) h_lines[h_count++] = center;
+                }
+                start_y = -1;
             }
         }
     }
+    // Dernier check bord bas
+    if (start_y != -1 && h_count < MAX_LINES) {
+        int center = start_y + (grid_rect.h - 1 - start_y) / 2;
+        if (h_count == 0 || (center - h_lines[h_count-1] > 15))
+            h_lines[h_count++] = center;
+    }
 
-    // B. Lignes Verticales
+    // --- ANALYSE VERTICALE ---
+    int start_x = -1;
     for (int x = 0; x < grid_rect.w; x++) {
-        if (x < 5) continue; // Marge de sécurité
-        
-        if (is_continuous_line(img, x, 0, grid_rect.h, grid_rect.x, grid_rect.y)) {
-            if (v_count < MAX_LINES) {
-                v_lines[v_count++] = x;
-                x += 4; 
+        // Ignorer marge gauche (bruit)
+        if (x < 5) continue;
+
+        if (v_proj[x] > thresh_v && is_line_solid(img, x, 0, grid_rect)) {
+            if (start_x == -1) start_x = x;
+        } else {
+            if (start_x != -1) {
+                int center = start_x + (x - 1 - start_x) / 2;
+                // Filtrage doublons
+                if (v_count == 0 || (center - v_lines[v_count-1] > 15)) {
+                    if (v_count < MAX_LINES) v_lines[v_count++] = center;
+                }
+                start_x = -1;
             }
         }
     }
+    if (start_x != -1 && v_count < MAX_LINES) {
+        int center = start_x + (grid_rect.w - 1 - start_x) / 2;
+        if (v_count == 0 || (center - v_lines[v_count-1] > 15))
+            v_lines[v_count++] = center;
+    }
 
-    printf("DEBUG: Lignes CONTINUES detectees -> H: %d, V: %d\n", h_count, v_count);
+    printf("DEBUG: Lignes FILTREES detectees -> H: %d, V: %d\n", h_count, v_count);
 
-    // --- 2. NETTOYAGE (Juste au cas où) ---
-    // Fusionne les lignes détectées à moins de 15px l'une de l'autre
-    h_count = clean_lines(h_lines, h_count, 15);
-    v_count = clean_lines(v_lines, v_count, 15);
-    
-    printf("DEBUG: Apres nettoyage -> H: %d, V: %d\n", h_count, v_count);
-
-    // --- 3. DECOUPAGE ---
+    // --- DECOUPAGE ---
     char filename[512];
     int cells_saved = 0;
-    
-    // Paramètres de marge pour rogner le trait noir lui-même
-    // Si les lignes sont détectées "au début" du trait noir :
-    int line_thickness = 4; // Estimation
+   
+    // Offset pour éviter de voir la grille dans la case
+    // 2 pixels suffisent généralement
+    int offset = 2;
 
     for (int i = 0; i < h_count - 1; i++) {
         for (int j = 0; j < v_count - 1; j++) {
             SDL_Rect cell;
-            
-            // Le début de la case est après la ligne actuelle
-            cell.x = grid_rect.x + v_lines[j] + line_thickness;
-            cell.y = grid_rect.y + h_lines[i] + line_thickness;
-            
-            // La fin de la case est avant la ligne suivante
-            int next_x = grid_rect.x + v_lines[j+1];
-            int next_y = grid_rect.y + h_lines[i+1];
-            
-            cell.w = (next_x - cell.x); // On ne retire pas plus, le start de next_x est le début du noir
-            cell.h = (next_y - cell.y);
+           
+            cell.x = grid_rect.x + v_lines[j] + offset;
+            cell.y = grid_rect.y + h_lines[i] + offset;
+           
+            // Calculer la largeur dispo jusqu'à la prochaine ligne
+            int w_available = (v_lines[j+1] - v_lines[j]);
+            int h_available = (h_lines[i+1] - h_lines[i]);
+           
+            cell.w = w_available - (2 * offset);
+            cell.h = h_available - (2 * offset);
 
-            // Sécurité : ignorer si négatif ou trop petit
-            if (cell.w < 10 || cell.h < 10) continue;
-            
-            // Sécurité : ne pas sortir de l'image
+            // Sécurité : taille minimale d'une case (ex: 15x15)
+            // Si c'est trop petit, c'est probablement un reste de bug de détection
+            if (cell.w < 15 || cell.h < 15) continue;
+
+            // Sécurité bornes image
             if (cell.x + cell.w > img->w) cell.w = img->w - cell.x;
             if (cell.y + cell.h > img->h) cell.h = img->h - cell.y;
 
@@ -279,7 +291,11 @@ static void extract_cells(SDL_Surface *img, SDL_Rect grid_rect, const char *outp
         }
     }
     printf("DEBUG: %d cellules sauvegardees.\n", cells_saved);
+
+    free(h_proj);
+    free(v_proj);
 }
+
 
 // --- MAIN FUNCTION ---
 
