@@ -134,122 +134,135 @@ static void split_grid_and_list(SDL_Surface *img, SDL_Rect *grid_rect,
     }
 }
 
+// Cette fonction nettoie les tableaux de lignes pour fusionner les doublons
+// (Ex: bord gauche et bord droit d'un trait épais détectés comme 2 lignes)
+static int clean_lines(int *lines, int count, int min_gap) {
+    if (count <= 0) return 0;
+    
+    int cleaned[count];
+    int new_count = 0;
+    
+    cleaned[0] = lines[0];
+    new_count++;
+    
+    for (int i = 1; i < count; i++) {
+        // Si la ligne actuelle est trop proche de la précédente, on l'ignore (fusion)
+        if (lines[i] - lines[i-1] > min_gap) {
+            cleaned[new_count++] = lines[i];
+        }
+    }
+    
+    // On remet les lignes propres dans le tableau original
+    for (int i = 0; i < new_count; i++) {
+        lines[i] = cleaned[i];
+    }
+    
+    return new_count;
+}
+
+// --- FONCTION EXTRACT CELLS MODIFIÉE ---
+
 static void extract_cells(SDL_Surface *img, SDL_Rect grid_rect,
                           const char *output_folder)
 {
-    if (grid_rect.w <= 0 || grid_rect.h <= 0)
-        return;
+    if (grid_rect.w <= 0 || grid_rect.h <= 0) return;
 
     int *h_proj = calloc((size_t)grid_rect.h, sizeof(int));
     int *v_proj = calloc((size_t)grid_rect.w, sizeof(int));
 
-    for (int y = 0; y < grid_rect.h; y++)
-    {
-        for (int x = 0; x < grid_rect.w; x++)
-        {
-            if (get_pixel_binary(img, grid_rect.x + x, grid_rect.y + y) == 0)
-            {
+    // Remplissage Histogrammes
+    for (int y = 0; y < grid_rect.h; y++) {
+        for (int x = 0; x < grid_rect.w; x++) {
+            if (get_pixel_binary(img, grid_rect.x + x, grid_rect.y + y) == 0) {
                 h_proj[y]++;
                 v_proj[x]++;
             }
         }
     }
 
-#define MAX_LINES 300 // Augmented for if necessary
+    #define MAX_LINES 500
     int h_lines[MAX_LINES];
     int v_lines[MAX_LINES];
     int h_count = 0;
     int v_count = 0;
 
-    // Seuil réduit à 5% pour détecter les lignes des images froissées ca te va celeste 0.05 ?
+    // Seuil très bas pour capter même les lignes faibles
     int threshold_h = (int)(grid_rect.w * 0.05);
     int threshold_v = (int)(grid_rect.h * 0.05);
 
-    // Ajout d'une tolérance pour les lignes discontinues 
+    // --- DETECTION BRUTE ---
+    
     int in_line = 0;
-    int gap_tolerance = 0;
-
-    // Lignes Horizontales
-    for (int y = 0; y < grid_rect.h; y++)
-    {
-        if (h_proj[y] > threshold_h)
-        {
-            if (!in_line)
-            {
-                if (h_count < MAX_LINES)
-                    h_lines[h_count++] = y;
+    // Horizontales
+    for (int y = 0; y < grid_rect.h; y++) {
+        if (h_proj[y] > threshold_h) {
+            if (!in_line && h_count < MAX_LINES) {
+                h_lines[h_count++] = y;
                 in_line = 1;
             }
-            gap_tolerance = 0;
-        }
-        else
-        {
-            if (in_line)
-            {
-                gap_tolerance++;
-                if (gap_tolerance > 2) // Si trou > 2 pixels, fin de ligne
-                    in_line = 0;
-            }
-        }
+        } else { in_line = 0; }
     }
 
-    // Lignes Verticales
     in_line = 0;
-    gap_tolerance = 0;
-    for (int x = 0; x < grid_rect.w; x++)
-    {
-        // Ignorer le bord gauche immédiat
-        if (!in_line && x < 5 && v_proj[x] > threshold_v)
-            continue;
+    // Verticales
+    for (int x = 0; x < grid_rect.w; x++) {
+        // Ignorer la marge gauche extrême (bruit de découpe)
+        if (x < 5) continue; 
 
-        if (v_proj[x] > threshold_v)
-        {
-            if (!in_line)
-            {
-                if (v_count < MAX_LINES)
-                    v_lines[v_count++] = x;
+        if (v_proj[x] > threshold_v) {
+            if (!in_line && v_count < MAX_LINES) {
+                v_lines[v_count++] = x;
                 in_line = 1;
             }
-            gap_tolerance = 0;
-        }
-        else
-        {
-            if (in_line)
-            {
-                gap_tolerance++;
-                if (gap_tolerance > 2)
-                    in_line = 0;
-            }
-        }
+        } else { in_line = 0; }
     }
 
-    // Calcul taille moyenne pour filtrer le bruit (double colonnes)
-    int min_cell_w = (v_count > 1) ? (v_lines[v_count - 1] - v_lines[0]) / v_count / 2 : 10;
-    int min_cell_h = (h_count > 1) ? (h_lines[h_count - 1] - h_lines[0]) / h_count / 2 : 10;
-    if (min_cell_w < 5) min_cell_w = 10;
-    if (min_cell_h < 5) min_cell_h = 10;
+    // --- DEBUG INFO ---
+    printf("DEBUG: Lignes detectees AVANT nettoyage -> H: %d, V: %d\n", h_count, v_count);
+
+    // --- NETTOYAGE (FUSION) ---
+    // Si deux lignes sont séparées de moins de 10 pixels, c'est la meme ligne épaisse
+    h_count = clean_lines(h_lines, h_count, 10);
+    v_count = clean_lines(v_lines, v_count, 10);
+
+    printf("DEBUG: Lignes detectees APRES nettoyage -> H: %d, V: %d\n", h_count, v_count);
+
+    // --- DECOUPAGE ---
+    
+    // Calcul taille moyenne (juste pour info debug)
+    int avg_w = (v_count > 1) ? (v_lines[v_count-1] - v_lines[0]) / (v_count-1) : 0;
+    int avg_h = (h_count > 1) ? (h_lines[h_count-1] - h_lines[0]) / (h_count-1) : 0;
+    
+    // Filtre de sécurité minimaliste (5x5 pixels)
+    // On évite le filtre "moyenne" pour l'instant car il bloque l'image 2 si la grille est mal détectée
+    int min_w = 5; 
+    int min_h = 5;
 
     char filename[512];
-    for (int i = 0; i < h_count - 1; i++)
-    {
-        for (int j = 0; j < v_count - 1; j++)
-        {
-            SDL_Rect cell;
-            cell.x = grid_rect.x + v_lines[j];
-            cell.y = grid_rect.y + h_lines[i];
-            cell.w = v_lines[j + 1] - v_lines[j];
-            cell.h = h_lines[i + 1] - h_lines[i];
+    int cells_saved = 0;
 
-            //Filtre plus strict sur la taille minimale
-            if (cell.w < min_cell_w || cell.h < min_cell_h)
-            {
-                continue;
-            }
+    for (int i = 0; i < h_count - 1; i++) {
+        for (int j = 0; j < v_count - 1; j++) {
+            SDL_Rect cell;
+            
+            // On prend l'espace ENTRE la ligne J et la ligne J+1
+            // On ajoute un petit offset (+2) pour ne pas prendre le noir de la ligne elle-même
+            cell.x = grid_rect.x + v_lines[j] + 2; 
+            cell.y = grid_rect.y + h_lines[i] + 2;
+            
+            // La largeur est la distance entre les lignes, moins l'épaisseur supposée (4px)
+            cell.w = (v_lines[j + 1] - v_lines[j]) - 4;
+            cell.h = (h_lines[i + 1] - h_lines[i]) - 4;
+
+            if (cell.w < min_w || cell.h < min_h) continue;
 
             sprintf(filename, "%s/cell_%02d_%02d.png", output_folder, i, j);
             save_sub_image(img, cell, filename);
+            cells_saved++;
         }
     }
+    
+    printf("DEBUG: Nombre total de cellules sauvegardees : %d\n", cells_saved);
 
     free(h_proj);
     free(v_proj);
