@@ -296,9 +296,203 @@ static void extract_cells(SDL_Surface *img, SDL_Rect grid_rect, const char *outp
     free(v_proj);
 }
 
+// --- EXTRACTION DE LA LISTE (Mots -> Caractères) ---
+
+// --- FONCTIONS POUR LA LISTE ---
+
+// Fonction récursive pour gérer les lettres collées (ex: "AT", "RV", "LAA")
+static void process_and_save_char(SDL_Surface *img, SDL_Rect rect, const char *output_folder, int word_idx, int *char_counter) {
+    float aspect_ratio = (float)rect.w / (float)rect.h;
+   
+    // CHANGE : On baisse le seuil à 1.1 pour attraper les couples serrés comme "SA"
+    // "SA" a souvent un ratio autour de 1.1 ou 1.2
+    // Un "W" a aussi un ratio > 1.0, donc on va entrer ici pour le W aussi (c'est normal).
+    if (aspect_ratio < 1.1) {
+        // --- SAUVEGARDE CLASSIQUE (Code identique) ---
+        int padding = 2;
+        SDL_Rect final_rect;
+        final_rect.x = (rect.x - padding > 0) ? rect.x - padding : 0;
+        final_rect.y = (rect.y - padding > 0) ? rect.y - padding : 0;
+        final_rect.w = rect.w + (2 * padding);
+        final_rect.h = rect.h + (2 * padding);
+       
+        if (final_rect.x + final_rect.w > img->w) final_rect.w = img->w - final_rect.x;
+        if (final_rect.y + final_rect.h > img->h) final_rect.h = img->h - final_rect.y;
+
+        char filename[512];
+        sprintf(filename, "%s/word_%d_char_%d.png", output_folder, word_idx, *char_counter);
+        save_sub_image(img, final_rect, filename);
+        (*char_counter)++;
+        return;
+    }
+
+    // --- ANALYSE DE DÉCOUPE ---
+   
+    int *local_proj = calloc((size_t)rect.w, sizeof(int));
+    for (int x = 0; x < rect.w; x++) {
+        for (int y = 0; y < rect.h; y++) {
+            if (get_pixel_binary(img, rect.x + x, rect.y + y) == 0) {
+                local_proj[x]++;
+            }
+        }
+    }
+
+    int best_split_x = -1;
+    int min_density = 99999;
+   
+    // On cherche le creux (minima) au centre
+    int search_start = rect.w * 0.25;
+    int search_end = rect.w * 0.75;
+
+    for (int x = search_start; x < search_end; x++) {
+        if (local_proj[x] < min_density) {
+            min_density = local_proj[x];
+            best_split_x = x;
+        }
+    }
+   
+    free(local_proj);
+
+    // --- SAFETY CHECK (Le cœur de la correction pour "SA" vs "W") ---
+    // Si la densité au point de coupe est trop élevée, c'est qu'on essaie de couper
+    // une lettre large (W, M, O) et pas un espace entre deux lettres.
+   
+    // Seuil de sécurité : Si on doit couper à travers plus de 15% de la hauteur en encre,
+    // on annule la coupe.
+    // Pour "SA", le contact est minime (0% à 5%). -> Ça coupe.
+    // Pour "W", le centre est dense (> 20%). -> Ça annule.
+   
+    if (best_split_x != -1 && min_density > rect.h * 0.15) {
+        // C'est probablement un W ou un M -> On sauvegarde tel quel
+        int padding = 2;
+        SDL_Rect final_rect;
+        final_rect.x = (rect.x - padding > 0) ? rect.x - padding : 0;
+        final_rect.y = (rect.y - padding > 0) ? rect.y - padding : 0;
+        final_rect.w = rect.w + (2 * padding);
+        final_rect.h = rect.h + (2 * padding);
+       
+        if (final_rect.x + final_rect.w > img->w) final_rect.w = img->w - final_rect.x;
+        if (final_rect.y + final_rect.h > img->h) final_rect.h = img->h - final_rect.y;
+
+        char filename[512];
+        sprintf(filename, "%s/word_%d_char_%d.png", output_folder, word_idx, *char_counter);
+        save_sub_image(img, final_rect, filename);
+        (*char_counter)++;
+        return;
+    }
+
+    // --- DÉCOUPE VALIDÉE ---
+   
+    if (best_split_x == -1) best_split_x = rect.w / 2;
+
+    SDL_Rect left_rect = rect;
+    left_rect.w = best_split_x;
+
+    SDL_Rect right_rect = rect;
+    right_rect.x += best_split_x;
+    right_rect.w -= best_split_x;
+
+    process_and_save_char(img, left_rect, output_folder, word_idx, char_counter);
+    process_and_save_char(img, right_rect, output_folder, word_idx, char_counter);
+}
+
+
+
+static void extract_list_characters(SDL_Surface *img, SDL_Rect list_rect, const char *output_folder)
+{
+    if (list_rect.w <= 0 || list_rect.h <= 0) return;
+
+    // 1. Histogramme Horizontal (Lignes de mots)
+    int *h_proj = calloc((size_t)list_rect.h, sizeof(int));
+   
+    for (int y = 0; y < list_rect.h; y++) {
+        for (int x = 0; x < list_rect.w; x++) {
+            if (get_pixel_binary(img, list_rect.x + x, list_rect.y + y) == 0) {
+                h_proj[y]++;
+            }
+        }
+    }
+
+    int in_word = 0;
+    int word_start_y = 0;
+    int word_count = 0;
+   
+    for (int y = 0; y < list_rect.h; y++) {
+        if (h_proj[y] > 0) {
+            if (!in_word) {
+                word_start_y = y;
+                in_word = 1;
+            }
+        } else {
+            if (in_word) {
+                // FIN DU MOT
+                int word_height = y - word_start_y;
+               
+                if (word_height > 5) {
+                   
+                    // 2. Histogramme Vertical (Lettres dans le mot)
+                    int *v_proj = calloc((size_t)list_rect.w, sizeof(int));
+                    for (int x = 0; x < list_rect.w; x++) {
+                        for (int k = 0; k < word_height; k++) {
+                            if (get_pixel_binary(img, list_rect.x + x, list_rect.y + word_start_y + k) == 0) {
+                                v_proj[x]++;
+                            }
+                        }
+                    }
+
+                    int in_char = 0;
+                    int char_start_x = 0;
+                    int char_counter = 0; // Compteur local pour ce mot
+
+                    for (int x = 0; x < list_rect.w; x++) {
+                        if (v_proj[x] > 0) {
+                            if (!in_char) {
+                                char_start_x = x;
+                                in_char = 1;
+                            }
+                        } else {
+                            if (in_char) {
+                                // FIN DU BLOC NOIR
+                                // Ce bloc peut contenir une lettre "A" ou deux lettres "AT" collées
+                                SDL_Rect blob_rect;
+                                blob_rect.x = list_rect.x + char_start_x;
+                                blob_rect.y = list_rect.y + word_start_y;
+                                blob_rect.w = x - char_start_x;
+                                blob_rect.h = word_height;
+
+                                // CHANGE: Au lieu de sauvegarder direct, on passe par la fonction intelligente
+                                process_and_save_char(img, blob_rect, output_folder, word_count, &char_counter);
+                               
+                                in_char = 0;
+                            }
+                        }
+                    }
+                   
+                    // Dernier bloc (si collé au bord droit)
+                    if (in_char) {
+                         SDL_Rect blob_rect;
+                         blob_rect.x = list_rect.x + char_start_x;
+                         blob_rect.y = list_rect.y + word_start_y;
+                         blob_rect.w = list_rect.w - char_start_x;
+                         blob_rect.h = word_height;
+
+                         process_and_save_char(img, blob_rect, output_folder, word_count, &char_counter);
+                    }
+
+                    free(v_proj);
+                    word_count++;
+                }
+                in_word = 0;
+            }
+        }
+    }
+   
+    printf("DEBUG: Extraction Liste -> %d mots trouves.\n", word_count);
+    free(h_proj);
+}
+
 
 // --- MAIN FUNCTION ---
-
 void extract_grid_data(const char *input_path, const char *output_folder)
 {
     SDL_Surface *img = IMG_Load(input_path);
@@ -308,15 +502,14 @@ void extract_grid_data(const char *input_path, const char *output_folder)
         return;
     }
 
-    // Intégration complète Niveaux de gris + Otsu
+    // Conversion Niveaux de gris + Otsu
     SDL_Surface *gray_img = grayscale(img);
-    SDL_FreeSurface(img); 
+    SDL_FreeSurface(img);
 
     uint8_t threshold = get_threshold(gray_img);
     SDL_Surface *bin_img = apply_threshold(gray_img, threshold);
     SDL_FreeSurface(gray_img);
-    
-    // Conversion finale en RGBA32 pour le traitement
+   
     SDL_Surface *fmt_img = SDL_ConvertSurfaceFormat(bin_img, SDL_PIXELFORMAT_RGBA32, 0);
     SDL_FreeSurface(bin_img);
 
@@ -335,9 +528,15 @@ void extract_grid_data(const char *input_path, const char *output_folder)
     save_sub_image(fmt_img, list_rect, path);
     printf("[GridExtractor] List crop saved.\n");
 
-    printf("[GridExtractor] Extracting cells...\n");
+    printf("[GridExtractor] Extracting cells (Grid)...\n");
     extract_cells(fmt_img, grid_rect, output_folder);
-    printf("[GridExtractor] Cells extracted to %s.\n", output_folder);
+   
+    // --- AJOUT ICI ---
+    printf("[GridExtractor] Extracting characters (List)...\n");
+    extract_list_characters(fmt_img, list_rect, output_folder);
+    // -----------------
+
+    printf("[GridExtractor] Extraction complete -> %s.\n", output_folder);
 
     SDL_FreeSurface(fmt_img);
 }
