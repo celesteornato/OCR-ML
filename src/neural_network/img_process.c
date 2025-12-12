@@ -91,7 +91,7 @@ int path_to_bytes(const char path[restrict static 1],
       uint8_t b = 0;
 
       SDL_GetRGB(pixels[(y * bnw->w) + x], bnw->format, &r, &g, &b);
-      bitmap[x + (y * w)] = r ? 0 : UINT_FAST8_MAX;
+      bitmap[x + (y * w)] = r ? 0 : 1;
     }
   }
 

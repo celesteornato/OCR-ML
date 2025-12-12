@@ -30,7 +30,7 @@ int main(int argc, char *argv[])
         print_usage();
         return 1;
     }
-    if (!is_valid_arg(argv[1]))
+    if (0 && !is_valid_arg(argv[1]))
     {
         printf("Error: bad parameter!");
         print_usage();
@@ -68,9 +68,10 @@ int main(int argc, char *argv[])
     }
 
     neural_load_weights(&nn, "weights.bin");
+
+    char path[128] = {0};
     char res = neural_find_logic(&nn, argv[2]);
     printf("Result:%c (%f)\n\n", res, nn.output[res - 'a']);
-
     for (size_t i = 0; i < OUTPUT_SIZE; ++i)
     {
         printf("%c: %f\n", (char)(i + 'a'), nn.output[i]);

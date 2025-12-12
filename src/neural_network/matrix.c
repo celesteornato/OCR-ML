@@ -1,5 +1,16 @@
+#include <matrix.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <threads.h>
+
+void shuffle(uint_fast8_t array[static 1], size_t count) {
+  for (size_t i = 0; i < count - 1; i++) {
+    size_t j = i + ((size_t)random() % (count - i));
+    uint_fast8_t temp = array[i];
+    array[i] = array[j];
+    array[j] = temp;
+  }
+}
 
 size_t max_i(const double a[restrict static 1], size_t n)
 {

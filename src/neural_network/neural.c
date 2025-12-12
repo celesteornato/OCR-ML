@@ -1,8 +1,10 @@
 #include "neural.h"
 #include "grayscale.h"
+#include <assert.h>
 #include <err.h>
 #include <math.h>
 #include <matrix.h>
+#include <signal.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -23,15 +25,24 @@ static double dsigmoid(double x)
 {
     return x * (1 - x);
 }
+/* static double relu(double x) */
+/* { */
+/*     return x >= 0 ? x : 0; */
+/* } */
+/* static double drelu(double x) */
+/* { */
+/*     return x >= 0 ? 1 : 0; */
+/* } */
+
 static double rnd(void)
 {
     return ((double)random() / ((double)(1ULL << 31) - 1.0)) - 0.5;
 }
 
-static double (*hidden_func)(double) = sigmoid;
-static double (*hidden_delta)(double) = dsigmoid;
 static double (*output_func)(double) = sigmoid;
 static double (*output_delta)(double) = dsigmoid;
+static double (*hidden_func)(double) = sigmoid;
+static double (*hidden_delta)(double) = dsigmoid;
 
 void neural_save_weights(struct neural_network *nn, const char path[static 1])
 {
@@ -63,15 +74,10 @@ void neural_load_weights(struct neural_network *nn, const char path[static 1])
     if (fseek(fileptr, 0, SEEK_END) == -1)
     {
         perror("Could not fseek to end of weights file");
+        goto cleanup;
     }
-
-    size_t filelen = (size_t)ftell(fileptr);
-
-    if (fseek(fileptr, 0, SEEK_SET) == -1)
-    {
-        perror("Could not fseek back to start of weights file");
-    }
-    if (fread(nn, filelen, 1, fileptr) != 1)
+    (void)fseek(fileptr, 0, SEEK_SET);
+    if (fread(nn, sizeof(*nn), 1, fileptr) != 1)
     {
         perror("Error while reading weights!");
         goto cleanup;
@@ -124,26 +130,23 @@ static void forward_pass(struct neural_network *nn,
     for (size_t i = 0; i < LAYER1_SIZE; ++i)
     {
         double dot = line_dot8(nn->input, nn->layer1_weights[i], INPUT_SIZE);
-        nn->layer1[i] = dot;
+        nn->layer1[i] = dot - nn->layer1_biases[i];
     }
 
-    line_subi(nn->layer1, nn->layer1_biases, LAYER1_SIZE);
     line_map(nn->layer1, LAYER1_SIZE, hidden_func);
 
     for (size_t i = 0; i < LAYER2_SIZE; ++i)
     {
         double dot = line_dot(nn->layer1, nn->layer2_weights[i], LAYER1_SIZE);
-        nn->layer2[i] = dot;
+        nn->layer2[i] = dot - nn->layer2_biases[i];
     }
-    line_subi(nn->layer2, nn->layer2_biases, LAYER2_SIZE);
     line_map(nn->layer2, LAYER2_SIZE, hidden_func);
 
     for (size_t i = 0; i < OUTPUT_SIZE; ++i)
     {
         double dot = line_dot(nn->layer2, nn->output_weights[i], LAYER2_SIZE);
-        nn->output[i] = dot;
+        nn->output[i] = dot - nn->output_biases[i];
     }
-    line_subi(nn->output, nn->output_biases, OUTPUT_SIZE);
     line_map(nn->output, OUTPUT_SIZE, output_func);
 }
 
@@ -157,65 +160,82 @@ char neural_find_logic(struct neural_network *nn, const char path[static 1])
 }
 
 /* Same thing here, we cannot replace this with a static inline. I'm sorry. */
-#define PROPAGATE_LAYER(lay, lay_weight, lay_bias, layprev, delta, lr,         \
-                        expected, otp_d, otp_w)                                \
+#define PROPAG(lay, lay_d, nlay_d, nlay_w)                                     \
     do                                                                         \
     {                                                                          \
-        for (size_t j = 0; j < countof(lay); ++j)                              \
+        for (size_t i = 0; i < countof(lay); ++i)                              \
         {                                                                      \
-            double otp = (lay)[j];                                             \
             double sum = 0;                                                    \
-            for (size_t k = 0; k < OUTPUT_SIZE; ++k)                           \
+            for (size_t j = 0; j < countof(nlay_d); ++j)                       \
             {                                                                  \
-                sum += (otp_d)[k] * (otp_w)[k][j];                             \
+                sum += (nlay_w)[j][i] * (nlay_d)[j];                           \
             }                                                                  \
-            (delta)[j] = hidden_delta(otp) * sum;                              \
-            for (size_t i = 0; i < countof(layprev); ++i)                      \
+            (lay_d)[i] = hidden_delta((lay)[i]) * sum;                         \
+        }                                                                      \
+    } while (0)
+
+#define APPLY(lay_w, lay_d, lay_b, play)                                       \
+    do                                                                         \
+    {                                                                          \
+        for (size_t i = 0; i < countof(lay_w); ++i)                            \
+        {                                                                      \
+            for (size_t j = 0; j < countof(play); ++j)                         \
             {                                                                  \
-                (lay_weight)[j][i] += (lr) * (delta)[j] * (layprev)[i];        \
+                (lay_w)[i][j] += LEARNING_RATE * (lay_d)[i] * (play)[j];       \
             }                                                                  \
-            (lay_bias)[j] -= (lr) * (delta)[j];                                \
+            (lay_b)[i] += LEARNING_RATE * (lay_d)[i];                          \
         }                                                                      \
     } while (0)
 
 static void back_propagate(struct neural_network *nn,
-                           double expected[static OUTPUT_SIZE],
-                           double learning_rate)
+                           double expected[static OUTPUT_SIZE])
 {
     double otp_delta[OUTPUT_SIZE] = {0};
     double layer2_delta[LAYER2_SIZE] = {0};
     double layer1_delta[LAYER1_SIZE] = {0};
 
     // This one is a special case, so we don't put it in the macro.
-    for (size_t j = 0; j < OUTPUT_SIZE; ++j)
+    for (size_t i = 0; i < OUTPUT_SIZE; ++i)
     {
-        double otp = nn->output[j];
-        otp_delta[j] = output_delta(otp) * (expected[j] - otp);
-        for (size_t i = 0; i < LAYER2_SIZE; ++i)
-        {
-            nn->output_weights[j][i] +=
-                learning_rate * otp_delta[j] * nn->layer2[i];
-        }
-        nn->output_biases[j] -= learning_rate * otp_delta[j];
+        double otp = nn->output[i];
+        otp_delta[i] = (expected[i] - otp) * output_delta(otp);
     }
 
-    PROPAGATE_LAYER(nn->layer2, nn->layer2_weights, nn->layer2_biases,
-                    nn->layer1, layer2_delta, learning_rate, expected,
-                    otp_delta, nn->output_weights);
+    PROPAG(nn->layer2, layer2_delta, otp_delta, nn->output_weights);
+    PROPAG(nn->layer1, layer1_delta, layer2_delta, nn->layer2_weights);
 
-    PROPAGATE_LAYER(nn->layer1, nn->layer1_weights, nn->layer1_biases,
-                    nn->input, layer1_delta, learning_rate, expected,
-                    layer2_delta, nn->layer2_weights);
+    APPLY(nn->output_weights, otp_delta, nn->output_biases, nn->layer2);
+    APPLY(nn->layer2_weights, layer2_delta, nn->layer2_biases, nn->layer1);
+    APPLY(nn->layer1_weights, layer1_delta, nn->layer1_biases, nn->input);
 }
 
+static bool must_stop = false;
+void sigusr_handle(int _)
+{
+    (void)_;
+    must_stop = true;
+}
 void neural_train(struct neural_network *nn)
 {
     srandom((unsigned int)time(NULL));
     randomize_layers(nn);
 
-    for (int i = 0; i < EPOCHS; ++i)
+    (void)signal(SIGUSR1, sigusr_handle);
+
+    size_t best_correct = 0;
+    size_t hasnt_beaten_correct_count = 0;
+
+    for (int i = 0; i < EPOCHS && !must_stop; ++i)
     {
-        printf("Entering Epoch %d: %d%% to the end\n", i, (100 * i) / EPOCHS);
+        printf("\nEntering Epoch %d: %d%% to the end\n", i, (100 * i) / EPOCHS);
+        size_t correct = 0;
+
+        const char *letter_path = "assets/letters";
+        if ((random() % 15) == 0)
+        {
+            letter_path = "assets/comparison";
+	    printf("Accursed generation!😱😱😱😱 \n");
+        }
 
         for (int j = 0; j < DATASET_SIZE; ++j)
         {
@@ -226,12 +246,13 @@ void neural_train(struct neural_network *nn)
                 fflush(stdout);
             }
 #endif
-            ssize_t letter_idx = random() % 26;
+            size_t letter_idx = (size_t)(random() % 26);
             char expected_letter = (char)('a' + letter_idx);
 
             char path[128] = {0};
-            (void)snprintf(path, sizeof(path), "assets/letters/%c/%ld.bmp",
-                           expected_letter, random() % DATASET_PER_INPUT);
+            assert(snprintf(path, sizeof(path), "%s/%c/%ld.bmp", letter_path,
+                            expected_letter,
+                            random() % DATASET_PER_INPUT) < (long)sizeof(path));
 
             uint_fast8_t input[INPUT_SIZE];
             if (!path_to_bytes(path, input, 32, 32))
@@ -243,8 +264,29 @@ void neural_train(struct neural_network *nn)
             expected[letter_idx] = 1;
 
             forward_pass(nn, input);
-            back_propagate(nn, expected, LEARNING_RATE);
+            back_propagate(nn, expected);
+
+            size_t obtained = max_i(nn->output, countof(nn->output));
+            if (obtained == letter_idx)
+            {
+                correct += 1;
+            }
         }
-        putchar('\n');
+#ifdef DEBUGPRINT
+        printf("\nEpoch %d: accuracy of %.1f%%\n", i,
+               (100.0 * (double)correct) / (double)DATASET_SIZE);
+#endif
+
+        if (correct > best_correct)
+        {
+            best_correct = correct;
+            hasnt_beaten_correct_count = 0;
+            continue;
+        }
+        hasnt_beaten_correct_count += 1;
+        if (hasnt_beaten_correct_count >= 3)
+        {
+            break; //  Early stopping
+        }
     }
 }

@@ -7,13 +7,14 @@
 #define LEARNING_RATE 0.01
 enum {
     INPUT_SIZE = 32 * 32,
-    LAYER1_SIZE = 168,
-    LAYER2_SIZE = 74,
+    LAYER1_SIZE = 128,
+    LAYER2_SIZE = 50,
     OUTPUT_SIZE = 26,
 
-    DATASET_SIZE = 130000,
-    DATASET_PER_INPUT = 5000,
-    EPOCHS = 2000
+    DATASET_PER_INPUT = 1200,
+    DATASET_SIZE = DATASET_PER_INPUT*26,
+
+    EPOCHS = 200
 };
 
 struct neural_network {

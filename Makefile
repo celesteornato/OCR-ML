@@ -32,6 +32,7 @@ endif
 ifdef DEBUG
 	CFLAGS+= \
 	    -DDEBUG\
+	    -DDEBUGPRINT\
 	    -g3 \
 	    -fsanitize=address,undefined 
 else
