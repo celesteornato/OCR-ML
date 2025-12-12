@@ -37,7 +37,6 @@ ifdef DEBUG
 	    -fsanitize=address,undefined 
 else
 	CFLAGS += \
-	    -flto \
 	    -O3 \
 	    -ffast-math # Living on the edge
 endif
@@ -53,7 +52,7 @@ OBJ_NEURAL:=$(SRC_NEURAL:.c=.o)
 OBJ_INTERFACE:=$(SRC_INTERFACE:.c=.o)
 OBJ_IMG:=$(SRC_IMG:.c=.o)
 
-LIBS:=-lm -lSDL2 -lSDL2_image
+LIBS:=-lm -lSDL2 -lSDL2_image -lSDL2_ttf
 
 all: neural solver interface image_processing
 clean:

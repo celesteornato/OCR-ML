@@ -5,5 +5,4 @@
 *.dll
 *.dynlib
 *.out
-assets/*
 output/*
