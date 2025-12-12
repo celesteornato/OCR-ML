@@ -4,167 +4,168 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-#define rotate_increment 1.5
+#define ROTATE_INCREMENT 1.5
 
-static int save_screenshot(sdl_renderer *ren, const char *filename) {
+static int save_screenshot(SDL_Renderer *ren, const char *filename) {
   int w;
   int h;
-  if (sdl_getrendereroutputsize(ren, &w, &h) != 0) {
+  if (SDL_GetRendererOutputSize(ren, &w, &h) != 0) {
     return -1;
   }
-  sdl_surface *shot =
-      sdl_creatergbsurfacewithformat(0, w, h, 32, sdl_pixelformat_argb8888);
+
+  SDL_Surface *shot =
+      SDL_CreateRGBSurfaceWithFormat(0, w, h, 32, SDL_PIXELFORMAT_ARGB8888);
   if (!shot) {
     return -2;
   }
-  if (sdl_renderreadpixels(ren, null, sdl_pixelformat_argb8888, shot->pixels,
-                           shot->pitch) != 0) {
-    sdl_freesurface(shot);
+
+  if (SDL_RenderReadPixels(ren, NULL, SDL_PIXELFORMAT_ARGB8888,
+                           shot->pixels, shot->pitch) != 0) {
+    SDL_FreeSurface(shot);
     return -3;
   }
-  int rc = sdl_savebmp(shot, filename);
-  sdl_freesurface(shot);
+
+  int rc = SDL_SaveBMP(shot, filename);
+  SDL_FreeSurface(shot);
   return rc;
 }
 
-static bool load_texture(sdl_renderer *ren, const char *path,
-                         sdl_texture **tex, int *iw, int *ih) {
-  sdl_surface *surf = img_load(path);
+static void load_image(SDL_Renderer *ren, const char *path,
+                       SDL_Texture **tex, int *iw, int *ih) {
+  SDL_Surface *surf = IMG_Load(path);
   if (!surf) {
-    fprintf(stderr, "img_load: %s\n", img_geterror());
-    return false;
-  }
-  sdl_texture *new_tex = sdl_createtexturefromsurface(ren, surf);
-  if (!new_tex) {
-    sdl_freesurface(surf);
-    fprintf(stderr, "createtexturefromsurface: %s\n", sdl_geterror());
-    return false;
-  }
-  if (*tex) {
-    sdl_destroytexture(*tex);
+    warnx("IMG_Load(%s): %s", path, IMG_GetError());
+    return;
   }
 
+  SDL_Texture *new_tex = SDL_CreateTextureFromSurface(ren, surf);
+  if (!new_tex) {
+    warnx("SDL_CreateTextureFromSurface: %s", SDL_GetError());
+    SDL_FreeSurface(surf);
+    return;
+  }
+
+  if (*tex) {
+    SDL_DestroyTexture(*tex);
+  }
   *tex = new_tex;
   *iw = surf->w;
   *ih = surf->h;
+  SDL_FreeSurface(surf);
+  printf("loaded %s (%dx%d)\n", path, *iw, *ih);
+}
 
-  sdl_freesurface(surf);
+static bool event_loop(SDL_Renderer *ren, double *angle,
+                       SDL_Texture **tex, int *iw, int *ih) {
+  SDL_Event e;
+  while (SDL_PollEvent(&e)) {
+    if (e.type == SDL_QUIT) {
+      return false;
+    }
+    if (e.type == SDL_DROPFILE) {
+      char *file = e.drop.file;
+      load_image(ren, file, tex, iw, ih);
+      SDL_free(file);
+      continue;
+    }
+
+    if (e.type != SDL_KEYDOWN) {
+      continue;
+    }
+
+    switch (e.key.keysym.sym) {
+    case SDLK_ESCAPE:
+      return false;
+    case SDLK_LEFT:
+      *angle -= ROTATE_INCREMENT;
+      break;
+    case SDLK_RIGHT:
+      *angle += ROTATE_INCREMENT;
+      break;
+    case SDLK_r:
+      *angle = 0.0;
+      break;
+    case SDLK_b:
+      save_screenshot(ren, "screenshot.bmp");
+      printf("saved screenshot as screenshot.bmp!\n");
+      break;
+    default:
+      break;
+    }
+  }
   return true;
 }
 
-static bool event_loop(sdl_renderer *ren, double *angle,
-                       sdl_texture **tex, int *iw, int *ih) {
-  sdl_event e;
-  while (sdl_pollevent(&e)) {
-    if (e.type == sdl_quit) {
-      return false;
-    }
-
-    if (e.type == sdl_keydown) {
-      switch (e.key.keysym.sym) {
-      case (sdlk_escape):
-        return false;
-      case (sdlk_left):
-        *angle -= rotate_increment;
-        break;
-
-      case (sdlk_right):
-        *angle += rotate_increment;
-        break;
-
-      case (sdlk_r):
-        *angle = 0.0;
-        break;
-
-      case (sdlk_b):
-        save_screenshot(ren, "screenshot.bmp");
-        printf("saved screenshot as screenshot.bmp!\n");
-        break;
-      default:
-        break;
-      }
-      return true;
-    }
-
-    if (e.type == sdl_dropfile) {
-      char *path = e.drop.file;
-      load_texture(ren, path, tex, iw, ih);
-      sdl_free(path);
-      return true;
-    }
-
-    return true;
-  }
-  return 1;
-}
-
 int main(int argc, char **argv) {
-  if (sdl_init(sdl_init_video) != 0) {
-    errx(1, "sdl_init: %s", sdl_geterror());
+  if (SDL_Init(SDL_INIT_VIDEO) != 0) {
+    errx(1, "SDL_Init: %s", SDL_GetError());
   }
-
-  int flags = img_init_png | img_init_jpg;
-  if ((img_init(flags) & flags) == 0) {
-    sdl_quit();
-    errx(1, "img_init: %s", img_geterror());
+  int flags = IMG_INIT_PNG | IMG_INIT_JPG;
+  if ((IMG_Init(flags) & flags) == 0) {
+    SDL_Quit();
+    errx(1, "IMG_Init: %s", IMG_GetError());
   }
-
-  sdl_window *win =
-      sdl_createwindow("rotation sdl2", sdl_windowpos_centered,
-                       sdl_windowpos_centered, 1000, 700, sdl_window_shown);
+  SDL_Window *win =
+      SDL_CreateWindow("rotation sdl2",
+                       SDL_WINDOWPOS_CENTERED,
+                       SDL_WINDOWPOS_CENTERED,
+                       1000, 700,
+                       SDL_WINDOW_SHOWN);
   if (!win) {
-    sdl_quit();
-    errx(1, "createwindow: %s", sdl_geterror());
+    SDL_Quit();
+    errx(1, "SDL_CreateWindow: %s", SDL_GetError());
   }
-
-  sdl_renderer *ren = sdl_createrenderer(
-      win, -1, sdl_renderer_accelerated | sdl_renderer_presentvsync);
+  SDL_Renderer *ren = SDL_CreateRenderer(
+      win, -1,
+      SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
   if (!ren) {
-    sdl_destroywindow(win);
-    sdl_quit();
-    errx(1, "createrenderer: %s", sdl_geterror());
+    SDL_DestroyWindow(win);
+    SDL_Quit();
+    errx(1, "SDL_CreateRenderer: %s", SDL_GetError());
   }
-  sdl_texture *tex = null;
+  SDL_Texture *tex = NULL;
   int iw = 0;
   int ih = 0;
   if (argc >= 2) {
-    if (!load_texture(ren, argv[1], &tex, &iw, &ih)) {
-      printf("could not load %s, drag & drop an image into the window.\n",
-             argv[1]);
-    }
+    load_image(ren, argv[1], &tex, &iw, &ih);
   } else {
-    printf("drag & drop an image into the window.\n");
+    printf("no image argument. drag & drop an image onto the window.\n");
   }
   double angle = 0.0;
   bool running = true;
   while (running) {
     running = event_loop(ren, &angle, &tex, &iw, &ih);
-    sdl_setrenderdrawcolor(ren, 255, 255, 255, 255);
-    sdl_renderclear(ren);
-    if (tex) {
+    SDL_SetRenderDrawColor(ren, 255, 255, 255, 255);
+    SDL_RenderClear(ren);
+    if (tex && iw > 0 && ih > 0) {
       int ww;
       int wh;
-      sdl_getrendereroutputsize(ren, &ww, &wh);
+      SDL_GetRendererOutputSize(ren, &ww, &wh);
       double sx = (double)ww / (double)iw;
       double sy = (double)wh / (double)ih;
       double s = (sx < sy) ? sx : sy;
       int dw = (int)(iw * s);
       int dh = (int)(ih * s);
-      sdl_rect dst = {(ww - dw) / 2, (wh - dh) / 2, dw, dh};
-      sdl_point center = {dw / 2, dh / 2};
-      sdl_rendercopyex(ren, tex, null, &dst, angle, &center, sdl_flip_none);
+
+      SDL_Rect dst = {(ww - dw) / 2, (wh - dh) / 2, dw, dh};
+      SDL_Point center = {dw / 2, dh / 2};
+
+      SDL_RenderCopyEx(ren, tex, NULL, &dst,
+                       angle, &center, SDL_FLIP_NONE);
     }
-    sdl_renderpresent(ren);
+    SDL_RenderPresent(ren);
   }
   if (tex) {
-    sdl_destroytexture(tex);
+    SDL_DestroyTexture(tex);
   }
   if (ren) {
-    sdl_destroyrenderer(ren);
+    SDL_DestroyRenderer(ren);
   }
   if (win) {
-    sdl_destroywindow(win);
-  img_quit();
-  sdl_quit();
+    SDL_DestroyWindow(win);
+  }
+  IMG_Quit();
+  SDL_Quit();
   return 0;
 }
+
