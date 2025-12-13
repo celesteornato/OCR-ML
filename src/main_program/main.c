@@ -1,4 +1,3 @@
-
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_error.h>
 #include <SDL2/SDL_image.h>
@@ -6,19 +5,20 @@
 #include <err.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <sys/stat.h>
+
+#include "grid_extractor.h"
 
 #define ROTATE_INCREMENT 1.5
-
-#define UI_W 220
-#define BTN_W 160
-#define BTN_H 60
+enum { UI_W = 220, BTN_W = 160, BTN_H = 60 };
 
 static bool point_in_rect(int x, int y, SDL_Rect *r)
 {
     return x >= r->x && x <= r->x + r->w && y >= r->y && y <= r->y + r->h;
 }
 
-static int save_screenshot(SDL_Renderer *ren, const char *filename)
+static int save_screenshot(SDL_Renderer *ren, const char *filename,
+                           SDL_Rect image_area)
 {
     int w;
     int h;
@@ -27,14 +27,14 @@ static int save_screenshot(SDL_Renderer *ren, const char *filename)
         return -1;
     }
 
-    SDL_Surface *shot =
-        SDL_CreateRGBSurfaceWithFormat(0, w, h, 32, SDL_PIXELFORMAT_ARGB8888);
+    SDL_Surface *shot = SDL_CreateRGBSurfaceWithFormat(0, image_area.w,
+                                                       image_area.h , 32, SDL_PIXELFORMAT_ARGB8888);
     if (!shot)
     {
         return -2;
     }
 
-    if (SDL_RenderReadPixels(ren, NULL, SDL_PIXELFORMAT_ARGB8888, shot->pixels,
+    if (SDL_RenderReadPixels(ren, &image_area, SDL_PIXELFORMAT_ARGB8888, shot->pixels,
                              shot->pitch) != 0)
     {
         SDL_FreeSurface(shot);
@@ -107,7 +107,8 @@ static void render_text_center(SDL_Renderer *ren, TTF_Font *font,
 }
 
 static bool event_loop(SDL_Renderer *ren, double *angle, SDL_Texture **tex,
-                       int *iw, int *ih, SDL_Rect *solve_btn)
+                       int *iw, int *ih, SDL_Rect *solve_btn,
+                       SDL_Rect image_area)
 {
     SDL_Event e;
     while (SDL_PollEvent(&e))
@@ -132,8 +133,10 @@ static bool event_loop(SDL_Renderer *ren, double *angle, SDL_Texture **tex,
 
             if (point_in_rect(mx, my, solve_btn))
             {
-                printf("LE BOUTTTTONNNNNNN\n");
-                /* marque le code ici */
+                save_screenshot(ren, ".cache_saved", image_area);
+                mkdir(".cache/", 0777);
+                mkdir(".cache/grid/", 0777);
+                extract_grid_data(".cache_saved", ".cache/grid");
             }
         }
 
@@ -156,7 +159,7 @@ static bool event_loop(SDL_Renderer *ren, double *angle, SDL_Texture **tex,
             *angle = 0.0;
             break;
         case SDLK_b:
-            save_screenshot(ren, "screenshot.bmp");
+            save_screenshot(ren, "screenshot.bmp", image_area);
             printf("saved screenshot as screenshot.bmp!\n");
             break;
         default:
@@ -234,12 +237,15 @@ int main(int argc, char **argv)
     bool running = true;
     while (running)
     {
-        running = event_loop(ren, &angle, &tex, &iw, &ih, &solve_btn);
         int ww;
         int wh;
         SDL_GetRendererOutputSize(ren, &ww, &wh);
         SDL_Rect image_area = {0, 0, ww - UI_W, wh};
         SDL_Rect ui_area = {ww - UI_W, 0, UI_W, wh};
+
+        running =
+            event_loop(ren, &angle, &tex, &iw, &ih, &solve_btn, image_area);
+
         SDL_SetRenderDrawColor(ren, 255, 255, 255, 255);
         SDL_RenderClear(ren);
         if (tex && iw > 0 && ih > 0)

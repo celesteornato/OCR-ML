@@ -1,8 +1,10 @@
 *~
 *#
+.#*
 *.swp
 *.o
 *.dll
 *.dynlib
 *.out
 output/*
+.cache/*

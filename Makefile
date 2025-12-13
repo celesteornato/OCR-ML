@@ -46,15 +46,17 @@ SRC_SOLVER:=$(shell find ./src/gridsolver -name '*.c')
 SRC_NEURAL:=$(shell find ./src/neural_network -name '*.c')
 SRC_INTERFACE:=$(shell find ./src/interface -name '*.c')
 SRC_IMG:=$(shell find ./src/image_processing -name '*.c')
+SRC_FINAL:=$(shell find ./src/main_program -name '*.c')
 
 OBJ_SOLVER:=$(SRC_SOLVER:.c=.o)
 OBJ_NEURAL:=$(SRC_NEURAL:.c=.o)
 OBJ_INTERFACE:=$(SRC_INTERFACE:.c=.o)
 OBJ_IMG:=$(SRC_IMG:.c=.o)
+OBJ_FINAL:=$(SRC_FINAL:.c=.o)
 
 LIBS:=-lm -lSDL2 -lSDL2_image -lSDL2_ttf
 
-all: neural solver interface image_processing
+all: neural solver interface image_processing final
 clean:
 	rm -f $(OBJ_SOLVER) $(OBJ_NEURAL) $(OBJ_INTERFACE) $(OBJ_IMG)
 
@@ -66,6 +68,8 @@ interface: $(OBJ_INTERFACE)
 	$(CC) $(CFLAGS) $(WARNS) -o interface.out $(OBJ_INTERFACE) $(LIBS)
 image_processing: $(OBJ_IMG)
 	$(CC) $(CFLAGS) $(WARNS) -o image_processing.out $(OBJ_IMG) $(LIBS)
+final: $(OBJ_FINAL)
+	$(CC) $(CFLAGS) $(WARNS) -o main.out $(OBJ_FINAL) $(LIBS)
 
 .c.o:
 	$(CC) $(CFLAGS) $(WARNS) -c -o $@ $<
