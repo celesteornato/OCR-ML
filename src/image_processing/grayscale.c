@@ -110,7 +110,9 @@ uint8_t get_threshold(const SDL_Surface *gray)
         }
     }
 
-    printf("Otsu Threshold calculated: %d\n", threshold); // Debug print
+#ifdef DEBUGPRINT
+    printf("Otsu Threshold calculated: %d\n", threshold);
+#endif
     return (uint8_t)threshold;
 }
 
