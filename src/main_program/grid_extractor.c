@@ -5,16 +5,22 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+enum { MAX_LINES = 100 };
+
 // --- INTERNAL FUNCTIONS ---
 
 static int get_pixel_binary(SDL_Surface *surface, int x, int y)
 {
     if (x < 0 || x >= surface->w || y < 0 || y >= surface->h)
+    {
         return 1;
+    }
 
-    Uint32 *pixels = (Uint32 *)surface->pixels;
-    Uint32 pixel = pixels[(y * surface->w) + x];
-    Uint8 r, g, b;
+    uint32_t *pixels = (Uint32 *)surface->pixels;
+    uint32_t pixel = pixels[(y * surface->w) + x];
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
     SDL_GetRGB(pixel, surface->format, &r, &g, &b);
 
     return (r > 128) ? 1 : 0;
@@ -183,7 +189,7 @@ static int is_line_solid(SDL_Surface *img, int pos, int is_horizontal,
 // --- FONCTION PRINCIPALE ---
 
 static void extract_cells(SDL_Surface *img, SDL_Rect grid_rect,
-                          const char *output_folder)
+                          const char *output_folder, int *h_count, int *v_count)
 {
     if (grid_rect.w <= 0 || grid_rect.h <= 0)
         return;
@@ -204,11 +210,10 @@ static void extract_cells(SDL_Surface *img, SDL_Rect grid_rect,
         }
     }
 
-#define MAX_LINES 100
     int h_lines[MAX_LINES];
     int v_lines[MAX_LINES];
-    int h_count = 0;
-    int v_count = 0;
+    *h_count = 0;
+    *v_count = 0;
 
     // SEUILS DE DENSITÉ
     // On garde un seuil bas pour capter les lignes fines de l'image 1
@@ -578,7 +583,8 @@ static void extract_list_characters(SDL_Surface *img, SDL_Rect list_rect,
 }
 
 // --- MAIN FUNCTION ---
-void extract_grid_data(const char *input_path, const char *output_folder)
+void extract_grid_data(const char *input_path, const char *output_folder,
+                       int *h_count, int *v_count)
 {
     SDL_Surface *img = IMG_Load(input_path);
     if (!img)
@@ -615,7 +621,8 @@ void extract_grid_data(const char *input_path, const char *output_folder)
     printf("[GridExtractor] List crop saved.\n");
 
     printf("[GridExtractor] Extracting cells (Grid)...\n");
-    extract_cells(fmt_img, grid_rect, output_folder);
+
+    extract_cells(fmt_img, grid_rect, output_folder, h_count, v_count);
 
     // --- AJOUT ICI ---
     printf("[GridExtractor] Extracting characters (List)...\n");

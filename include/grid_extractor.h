@@ -8,6 +8,7 @@
  * 3. Saves crops of the Grid and List.
  * 4. Detects cells inside the grid and saves them as individual images.
  */
-void extract_grid_data(const char *input_path, const char *output_folder);
+void extract_grid_data(const char *input_path, const char *output_folder,
+                       int *h_count, int *v_count);
 
 #endif
