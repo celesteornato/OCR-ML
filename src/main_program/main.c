@@ -189,12 +189,31 @@ static void on_button_pressed(SDL_Renderer *ren, SDL_Rect image_area)
     mkdir(".cache/grid/", 0777);
 
     save_screenshot(ren, ".cache/saved", image_area);
-    extract_grid_data(".cache/saved", ".cache/grid");
+
+    int height = 0;
+    int width = 0;
+    extract_grid_data(".cache/saved", ".cache/grid", &height, &width);
+    height -= 1;
+    width -= 1;
 
     struct neural_network nn = {0};
     neural_load_weights(&nn, "weights.bin");
-    putchar(neural_find_logic(&nn, ".cache/grid/cell_00_00.bmp"));
-    putchar('\n');
+
+    static const char *path_name = ".cache/grid/cell_%02d_%02d.bmp";
+    system("mogrify -background white -resize 32x32^! "
+           ".cache/grid/*");
+
+    printf("%d %d\n", height, width);
+    for (int i = 0; i < height; ++i)
+    {
+        for (int j = 0; j < width; ++j)
+        {
+            char path[256] = {0};
+            (void)snprintf(path, 256, path_name, i, j);
+            (void)putchar(neural_find_logic(&nn, path));
+        }
+        (void)putchar('\n');
+    }
 }
 
 static bool event_loop(SDL_Renderer *ren, double *angle, SDL_Texture **tex,
@@ -313,7 +332,7 @@ int main(int argc, char **argv)
     }
 
     bool running = true;
-        double angle = 0.0;
+    double angle = 0.0;
     while (running)
     {
         int ww;

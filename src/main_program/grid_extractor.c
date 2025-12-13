@@ -39,7 +39,7 @@ static void save_sub_image(SDL_Surface *src, SDL_Rect rect,
     SDL_Rect dest_rect = {0, 0, rect.w, rect.h};
 
     SDL_BlitSurface(src, &src_rect, sub, &dest_rect);
-    IMG_SavePNG(sub, filename);
+    SDL_SaveBMP(sub, filename);
     SDL_FreeSurface(sub);
 }
 
@@ -242,7 +242,7 @@ static void extract_cells(SDL_Surface *img, SDL_Rect grid_rect,
                 if (*h_count == 0 || (center - h_lines[*h_count - 1] > 15))
                 {
                     if (*h_count < MAX_LINES)
-		      h_lines[(*h_count)++] = center;
+                        h_lines[(*h_count)++] = center;
                 }
                 start_y = -1;
             }
@@ -253,7 +253,7 @@ static void extract_cells(SDL_Surface *img, SDL_Rect grid_rect,
     {
         int center = start_y + (grid_rect.h - 1 - start_y) / 2;
         if (*h_count == 0 || (center - h_lines[*h_count - 1] > 15))
-	  h_lines[(*h_count)++] = center;
+            h_lines[(*h_count)++] = center;
     }
 
     // --- ANALYSE VERTICALE ---
@@ -334,7 +334,7 @@ static void extract_cells(SDL_Surface *img, SDL_Rect grid_rect,
             if (cell.y + cell.h > img->h)
                 cell.h = img->h - cell.y;
 
-            sprintf(filename, "%s/cell_%02d_%02d.png", output_folder, i, j);
+            sprintf(filename, "%s/cell_%02d_%02d.bmp", output_folder, i, j);
             save_sub_image(img, cell, filename);
             cells_saved++;
         }
@@ -375,7 +375,7 @@ static void process_and_save_char(SDL_Surface *img, SDL_Rect rect,
             final_rect.h = img->h - final_rect.y;
 
         char filename[512];
-        (void)sprintf(filename, "%s/word_%d_char_%d.png", output_folder,
+        (void)sprintf(filename, "%s/word_%d_char_%d.bmp", output_folder,
                       word_idx, *char_counter);
         save_sub_image(img, final_rect, filename);
         (*char_counter)++;
@@ -438,7 +438,7 @@ static void process_and_save_char(SDL_Surface *img, SDL_Rect rect,
             final_rect.h = img->h - final_rect.y;
 
         char filename[512];
-        sprintf(filename, "%s/word_%d_char_%d.png", output_folder, word_idx,
+        sprintf(filename, "%s/word_%d_char_%d.bmp", output_folder, word_idx,
                 *char_counter);
         save_sub_image(img, final_rect, filename);
         (*char_counter)++;
@@ -616,11 +616,11 @@ void extract_grid_data(const char *input_path, const char *output_folder,
     split_grid_and_list(fmt_img, &grid_rect, &list_rect);
 
     char path[512];
-    sprintf(path, "%s/grid_crop.png", output_folder);
+    sprintf(path, "%s/grid_crop.bmp", output_folder);
     save_sub_image(fmt_img, grid_rect, path);
     printf("[GridExtractor] Grid crop saved.\n");
 
-    sprintf(path, "%s/list_crop.png", output_folder);
+    sprintf(path, "%s/list_crop.bmp", output_folder);
     save_sub_image(fmt_img, list_rect, path);
     printf("[GridExtractor] List crop saved.\n");
 

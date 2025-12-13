@@ -1,4 +1,5 @@
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_image.h>
 #include <SDL2/SDL_surface.h>
 #include <grayscale.h>
 #include <stddef.h>
@@ -89,7 +90,6 @@ uint8_t get_threshold(const SDL_Surface *gray)
 
     for (int t = 0; t < 256; t++)
     {
-
         wB += histogram[t];
         if (wB == 0)
         {
@@ -116,7 +116,9 @@ uint8_t get_threshold(const SDL_Surface *gray)
         }
     }
 
-    printf("Otsu Threshold calculated: %d\n", threshold); // Debug print
+#ifdef DEBUGPRINT
+    printf("Otsu Threshold calculated: %d\n", threshold);
+#endif
     return (uint8_t)threshold;
 }
 
@@ -170,7 +172,7 @@ int path_to_bitmap(const char path[restrict static 1],
     }
 
     SDL_Surface *gray = grayscale(img);
-    SDL_Surface *bnw = apply_threshold(gray, 127);
+    SDL_Surface *bnw = apply_threshold(gray, get_threshold(bnw));
 
     uint32_t *pixels = bnw->pixels;
     for (int y = 0; y < bnw->h; y++)
@@ -215,7 +217,7 @@ int path_to_bytes(const char path[restrict static 1],
     }
 
     SDL_Surface *gray = grayscale(img);
-    SDL_Surface *bnw = apply_threshold(gray, get_threshold(gray));
+    SDL_Surface *bnw = apply_threshold(gray, 254);
 
     uint32_t *pixels = bnw->pixels;
     for (int y = 0; y < h; y++)
