@@ -239,21 +239,21 @@ static void extract_cells(SDL_Surface *img, SDL_Rect grid_rect,
                 // Fin bloc, on prend le milieu
                 int center = start_y + (y - 1 - start_y) / 2;
                 // Filtrage doublons (si lignes très proches < 10px)
-                if (h_count == 0 || (center - h_lines[h_count - 1] > 15))
+                if (*h_count == 0 || (center - h_lines[*h_count - 1] > 15))
                 {
-                    if (h_count < MAX_LINES)
-                        h_lines[h_count++] = center;
+                    if (*h_count < MAX_LINES)
+		      h_lines[(*h_count)++] = center;
                 }
                 start_y = -1;
             }
         }
     }
     // Dernier check bord bas
-    if (start_y != -1 && h_count < MAX_LINES)
+    if (start_y != -1 && *h_count < MAX_LINES)
     {
         int center = start_y + (grid_rect.h - 1 - start_y) / 2;
-        if (h_count == 0 || (center - h_lines[h_count - 1] > 15))
-            h_lines[h_count++] = center;
+        if (*h_count == 0 || (center - h_lines[*h_count - 1] > 15))
+	  h_lines[(*h_count)++] = center;
     }
 
     // --- ANALYSE VERTICALE ---
@@ -273,26 +273,30 @@ static void extract_cells(SDL_Surface *img, SDL_Rect grid_rect,
         {
             if (start_x != -1)
             {
-                int center = start_x + (x - 1 - start_x) / 2;
+                int center = start_x + ((x - 1 - start_x) / 2);
                 // Filtrage doublons
-                if (v_count == 0 || (center - v_lines[v_count - 1] > 15))
+                if (*v_count == 0 || (center - v_lines[*v_count - 1] > 15))
                 {
-                    if (v_count < MAX_LINES)
-                        v_lines[v_count++] = center;
+                    if (*v_count < MAX_LINES)
+                    {
+                        v_lines[(*v_count)++] = center;
+                    }
                 }
                 start_x = -1;
             }
         }
     }
-    if (start_x != -1 && v_count < MAX_LINES)
+    if (start_x != -1 && *v_count < MAX_LINES)
     {
-        int center = start_x + (grid_rect.w - 1 - start_x) / 2;
-        if (v_count == 0 || (center - v_lines[v_count - 1] > 15))
-            v_lines[v_count++] = center;
+        int center = start_x + ((grid_rect.w - 1 - start_x) / 2);
+        if (v_count == 0 || (center - v_lines[*v_count - 1] > 15))
+        {
+            v_lines[(*v_count)++] = center;
+        }
     }
 
-    printf("DEBUG: Lignes FILTREES detectees -> H: %d, V: %d\n", h_count,
-           v_count);
+    printf("DEBUG: Lignes FILTREES detectees -> H: %d, V: %d\n", *h_count,
+           *v_count);
 
     // --- DECOUPAGE ---
     char filename[512];
@@ -302,9 +306,9 @@ static void extract_cells(SDL_Surface *img, SDL_Rect grid_rect,
     // 2 pixels suffisent généralement
     int offset = 2;
 
-    for (int i = 0; i < h_count - 1; i++)
+    for (int i = 0; i < *h_count - 1; i++)
     {
-        for (int j = 0; j < v_count - 1; j++)
+        for (int j = 0; j < *v_count - 1; j++)
         {
             SDL_Rect cell;
 
