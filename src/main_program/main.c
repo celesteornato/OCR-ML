@@ -1,4 +1,5 @@
 #include "grid_extractor.h"
+#include "neural.h"
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_error.h>
 #include <SDL2/SDL_image.h>
@@ -18,7 +19,6 @@ static bool point_in_rect(int x, int y, SDL_Rect *r)
 {
     return x >= r->x && x <= r->x + r->w && y >= r->y && y <= r->y + r->h;
 }
-
 
 static void load_image(SDL_Renderer *ren, const char *path, SDL_Texture **tex,
                        int *iw, int *ih)
@@ -190,6 +190,11 @@ static void on_button_pressed(SDL_Renderer *ren, SDL_Rect image_area)
 
     save_screenshot(ren, ".cache/saved", image_area);
     extract_grid_data(".cache/saved", ".cache/grid");
+
+    struct neural_network nn = {0};
+    neural_load_weights(&nn, "weights.bin");
+    putchar(neural_find_logic(&nn, ".cache/grid/cell_00_00.bmp"));
+    putchar('\n');
 }
 
 static bool event_loop(SDL_Renderer *ren, double *angle, SDL_Texture **tex,
@@ -308,6 +313,7 @@ int main(int argc, char **argv)
     }
 
     bool running = true;
+        double angle = 0.0;
     while (running)
     {
         int ww;
@@ -316,7 +322,6 @@ int main(int argc, char **argv)
         SDL_Rect image_area = {0, 0, ww - UI_W, wh};
         SDL_Rect ui_area = {ww - UI_W, 0, UI_W, wh};
 
-        double angle = 0.0;
         running = event_loop(ren, &angle, &tex, &iw, &ih, image_area);
         draw_ui(ren, tex, font, image_area, ui_area, ih, iw, angle);
     }
