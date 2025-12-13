@@ -458,7 +458,9 @@ static void extract_list_characters(SDL_Surface *img, SDL_Rect list_rect,
                                     const char *output_folder)
 {
     if (list_rect.w <= 0 || list_rect.h <= 0)
+    {
         return;
+    }
 
     // 1. Histogramme Horizontal (Lignes de mots)
     int *h_proj = calloc((size_t)list_rect.h, sizeof(int));
@@ -487,89 +489,88 @@ static void extract_list_characters(SDL_Surface *img, SDL_Rect list_rect,
                 word_start_y = y;
                 in_word = 1;
             }
+            continue;
         }
-        else
+        if (!in_word)
         {
-            if (in_word)
+            continue;
+        }
+        in_word = 0;
+
+        // FIN DU MOT
+        int word_height = y - word_start_y;
+
+        if (word_height <= 4)
+        {
+            continue;
+        }
+
+        // 2. Histogramme Vertical (Lettres dans le mot)
+        int *v_proj = calloc((size_t)list_rect.w, sizeof(int));
+        for (int x = 0; x < list_rect.w; x++)
+        {
+            for (int k = 0; k < word_height; k++)
             {
-                // FIN DU MOT
-                int word_height = y - word_start_y;
-
-                if (word_height > 5)
+                if (get_pixel_binary(img, list_rect.x + x,
+                                     list_rect.y + word_start_y + k) == 0)
                 {
-
-                    // 2. Histogramme Vertical (Lettres dans le mot)
-                    int *v_proj = calloc((size_t)list_rect.w, sizeof(int));
-                    for (int x = 0; x < list_rect.w; x++)
-                    {
-                        for (int k = 0; k < word_height; k++)
-                        {
-                            if (get_pixel_binary(img, list_rect.x + x,
-                                                 list_rect.y + word_start_y +
-                                                     k) == 0)
-                            {
-                                v_proj[x]++;
-                            }
-                        }
-                    }
-
-                    int in_char = 0;
-                    int char_start_x = 0;
-                    int char_counter = 0; // Compteur local pour ce mot
-
-                    for (int x = 0; x < list_rect.w; x++)
-                    {
-                        if (v_proj[x] > 0)
-                        {
-                            if (!in_char)
-                            {
-                                char_start_x = x;
-                                in_char = 1;
-                            }
-                        }
-                        else
-                        {
-                            if (in_char)
-                            {
-                                // FIN DU BLOC NOIR
-                                // Ce bloc peut contenir une lettre "A" ou deux
-                                // lettres "AT" collées
-                                SDL_Rect blob_rect;
-                                blob_rect.x = list_rect.x + char_start_x;
-                                blob_rect.y = list_rect.y + word_start_y;
-                                blob_rect.w = x - char_start_x;
-                                blob_rect.h = word_height;
-
-                                // CHANGE: Au lieu de sauvegarder direct, on
-                                // passe par la fonction intelligente
-                                process_and_save_char(img, blob_rect,
-                                                      output_folder, word_count,
-                                                      &char_counter);
-
-                                in_char = 0;
-                            }
-                        }
-                    }
-
-                    // Dernier bloc (si collé au bord droit)
-                    if (in_char)
-                    {
-                        SDL_Rect blob_rect;
-                        blob_rect.x = list_rect.x + char_start_x;
-                        blob_rect.y = list_rect.y + word_start_y;
-                        blob_rect.w = list_rect.w - char_start_x;
-                        blob_rect.h = word_height;
-
-                        process_and_save_char(img, blob_rect, output_folder,
-                                              word_count, &char_counter);
-                    }
-
-                    free(v_proj);
-                    word_count++;
+                    v_proj[x]++;
                 }
-                in_word = 0;
             }
         }
+
+        int in_char = 0;
+        int char_start_x = 0;
+        int char_counter = 0; // Compteur local pour ce mot
+
+        for (int x = 0; x < list_rect.w; x++)
+        {
+            if (v_proj[x] > 0)
+            {
+                if (!in_char)
+                {
+                    char_start_x = x;
+                    in_char = 1;
+                }
+            }
+            else
+            {
+                if (in_char)
+                {
+                    // FIN DU BLOC NOIR
+                    // Ce bloc peut contenir une lettre "A" ou deux
+                    // lettres "AT" collées
+                    SDL_Rect blob_rect;
+                    blob_rect.x = list_rect.x + char_start_x;
+                    blob_rect.y = list_rect.y + word_start_y;
+                    blob_rect.w = x - char_start_x;
+                    blob_rect.h = word_height;
+
+                    // CHANGE: Au lieu de sauvegarder direct, on
+                    // passe par la fonction intelligente
+                    process_and_save_char(img, blob_rect, output_folder,
+                                          word_count, &char_counter);
+
+                    in_char = 0;
+                }
+            }
+        }
+
+        // Dernier bloc (si collé au bord droit)
+        if (in_char)
+        {
+            SDL_Rect blob_rect;
+            blob_rect.x = list_rect.x + char_start_x;
+            blob_rect.y = list_rect.y + word_start_y;
+            blob_rect.w = list_rect.w - char_start_x;
+            blob_rect.h = word_height;
+
+            process_and_save_char(img, blob_rect, output_folder, word_count,
+                                  &char_counter);
+        }
+
+        free(v_proj);
+        word_count++;
     }
 
     printf("DEBUG: Extraction Liste -> %d mots trouves.\n", word_count);
